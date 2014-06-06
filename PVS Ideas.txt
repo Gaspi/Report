@@ -1,0 +1,95 @@
+
+ -------- Translating PVS to C  --------
+
+Different paradigms :
+
+PVS
+Specification   
+Functionnal
+
+C
+Programming
+Mostly imperative
+
+
+
+ --- Easy ---
+Recursion / recursion
+function types / function pointers
+type int / type bignum
+tuples / arrays
+record types / struct
+
+ --- Less easy ---
+lambda expression / closures as function pointer + replacement rules...
+Tail recursion / Loops
+
+
+
+ --- Other problems ---
+ALL PVS types should be defined in C
+
+Lambda expression (let)
+
+Garbage collection
+ - Nothing ?
+ - Weak pointers
+ - Destructive / non-destructive operations
+
+
+
+
+
+
+Two solutions :
+
+Building a (probably slow) emulator of PVS in C (pvsInt, pvsAdd, pvsTimes, ...)
+Building a (restrictive) subset of PVS that is efficiently translated to C (Cint ~ integers in C, 
+
+
+
+
+
+
+
+
+Autres problemes rencontrés :
+
+probleme du if 
+problem du let (optimisation)
+probleme du return (détail, parsing)
+
+
+BigInt
+lambda calculus : lambda terms lx.(ly.x)  , etc
+imperative programming :  serie of instructions
+
+
+Examples of translation rules:
+
+f(a:A)b:B = Expr
+
+B f'(A a) {
+  B res;
+  Expr';
+  return res;
+}
+
+
+
+r = f(ExprA, ExprB)
+
+typeA exa;
+typeB exb;
+ExprA'(exa);      // modify exi in place
+ExprB'(exb);
+f( &r, &exa, &exb);
+free exa;
+free exb;
+
+
+
+
+To discuss :
+ - BigInt , how to use them ?
+ - Closures,  complicated structure ?
