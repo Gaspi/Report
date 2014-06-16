@@ -7,19 +7,21 @@
 \usepackage{amssymb}
 \usepackage{amsthm}
 \usepackage{amsfonts}
-\usepackage{hyperref}
+\usepackage[colorlinks]{hyperref}
 \usepackage{graphicx}
 
 % --- CSL part
-\usepackage{includes/natbib}
-\usepackage{makebnf}
+\usepackage{natbib}
+\input{includes/pvstex}
+\usepackage{includes/makebnf}
+
 
 \usepackage[space]{grffile} % Celui-là je sais plus à quoi il sert...
 
 % --- Partie code
 \usepackage{listings}
 \lstset{language=Java} % Changer eventuellement le nom du langage
-\newcommand{\class}[1]{\texttt{#1}}
+\newcommand{\codeline}[1]{\texttt{#1}}
 
 % --- Parti math. (app.)
 \newtheorem{theorem}{Theorem}
@@ -92,13 +94,44 @@ Nom et adresse de l'organisme :  & SRI International \\
 
 \section{Translating PVS to C}
 
+We only convert a fragment of PVS.
+
+\section{PVS Syntax}
+We describe here the syntax of PVS and the objects system used to represent them in Lisp. Some slots of the classes are voluntarily omitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
+
+\input{includes/bnf-expr}
+\input{includes/bnf-expr-aux}
+
 
 
 
 \section{Types}
-A PVS theory can be typechecked using the emacs interface \class{M-x typecheck} or with Lisp function \class{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
+A PVS theory can be typechecked using the emacs interface \codeline{M-x typecheck} or with Lisp function \codeline{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
-Here we describe how PVS types are represented in Lisp.
+Here we describe how PVS types are represented in Lisp. The syntax of PVS we allow
+
+\input{includes/bnf-type-expr}
+
+\begin{class}{type-expr}{abstract}{\classhln{syntax}}
+{}
+\end{class}
+\begin{class}{type-name}{}{\classhln{type-expr} \classhln{name}}
+{\slotidx{adt} & }
+\end{class}
+\begin{class}{subtype}{}{\classhln{type-expr}}
+{\slotidx{supertype} & \\
+ \slotidx{predicate} & }
+\end{class}
+\begin{class}{funtype}{}{\classhln{type-expr}}
+{\slotidx{domain} & \\
+ \slotidx{range} & }
+\end{class}
+\begin{class}{tupletype}{}{\classhln{type-expr}}
+{\slotidx{types} & }
+\end{class}
+\begin{class}{recordtype}{}{\classhln{type-expr}}
+{\slotidx{fields} & }
+\end{class}
 
 
 
@@ -157,10 +190,11 @@ Correcting translator PVS to SMT-LIB
 
 Summer school
 
-\input{includes/bnf-theory}
 
 
-\section{References}
+
+
+
 Try using bibtex here
 
 -- PVS --
@@ -181,7 +215,12 @@ The C Library Reference Guide, Eric Huss
 Compilation course, J.C. Filliatre
 
 
-\bibliographystyle{te}
+\cite{PVS:language}
+\cite{PVS:manuals}
+\cite{PVS:userguide}
+
+
+\bibliographystyle{plain}
 \bibliography{Report}
 
 
