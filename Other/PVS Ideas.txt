@@ -67,7 +67,7 @@ imperative programming :  serie of instructions
 
 Examples of translation rules:
 
-f(a:A)b:B = Expr
+f(a:A):B = Expr
 
 B f'(A a) {
   B res;
