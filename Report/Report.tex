@@ -10,6 +10,10 @@
 \usepackage{hyperref}
 \usepackage{graphicx}
 
+% --- CSL part
+\usepackage{includes/natbib}
+\usepackage{makebnf}
+
 \usepackage[space]{grffile} % Celui-là je sais plus à quoi il sert...
 
 % --- Partie code
@@ -89,7 +93,42 @@ Nom et adresse de l'organisme :  & SRI International \\
 \section{Translating PVS to C}
 
 
+
+
+\section{Types}
+A PVS theory can be typechecked using the emacs interface \class{M-x typecheck} or with Lisp function \class{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
+
+Here we describe how PVS types are represented in Lisp.
+
+
+
+
+boolean, number, number\_field, real, 
+rational, integer, $A \rightarrow B$, restricted types
+$\text{below}(10) := \{ x:\text{int} | 0 \leq x < 10 \} $)  \\
+enum
+datatype
+
+C types:
+[unsigned] char, int, long, double
+boolean
+arrays
+strings
+enum
+struct
+and others: short int, float, union, size\_t, ...
+
+
+
+\subsection{Fragment of PVS syntax}
+
+
+
+
+
 \subsection{Difficulties}
+if-expr
+update-expr
 
 
 
@@ -118,6 +157,32 @@ Correcting translator PVS to SMT-LIB
 
 Summer school
 
+\input{includes/bnf-theory}
+
+
+\section{References}
+Try using bibtex here
+
+-- PVS --
+
+PVS API Reference
+PVS Lisp sources (github rep)
+PVS language Reference
+PVS System Guide
+PVS Prelude library
+
+-- Lisp --
+Common Lisp Guy L. Steele Jr
+
+-- C-- 
+The C Library Reference Guide, Eric Huss
+
+-- Other --
+Compilation course, J.C. Filliatre
+
+
+\bibliographystyle{te}
+\bibliography{Report}
 
 
 \end{document}

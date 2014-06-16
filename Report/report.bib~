@@ -1,0 +1,58 @@
+@string{csl = {Computer Science Laboratory, SRI International}}
+@string{mp = {Menlo Park, CA}}
+
+
+
+@book{Steele:commonlisp,
+	AUTHOR = {Guy L. {Steele Jr.}},
+	TITLE = {Common Lisp: The Language},
+	PUBLISHER = {Digital Press},
+	YEAR = 1990,
+	ADDRESS = {Bedford, MA},
+	EDITION = {second}
+}
+
+
+
+@manual{PVS:manuals,
+	TITLE = {User Guide for the {PVS} Specification and
+		Verification System},
+	AUTHOR = {S. Owre and N. Shankar and J. M. Rushby and
+		D. W. J. Stringer-Calvert},
+	ORGANIZATION = csl,
+	ADDRESS = mp,
+	MONTH = sep,
+	YEAR = 1998,
+	NOTE = {Three volumes: Language, System, and Prover Reference Manuals}
+}
+
+@MANUAL{PVS:userguide,
+        TITLE = {PVS System Guide},
+        AUTHOR = {S. Owre and N. Shankar and J. M. Rushby and D. W. J. Stringer-Calvert},
+        ORGANIZATION = csl,
+        ADDRESS = mp,
+        MONTH = sep,
+        YEAR = 1999
+}
+
+@MANUAL{PVS:language,
+        TITLE = {PVS Language Reference},
+        AUTHOR = {S. Owre and N. Shankar and J. M. Rushby and D. W. J. Stringer-Calvert},
+        ORGANIZATION = csl,
+        ADDRESS = mp,
+        MONTH = sep,
+        YEAR = 1999
+}
+
+@MANUAL{PVS:prover,
+        TITLE = {PVS Prover Guide},
+        AUTHOR = {N. Shankar and S. Owre and J. M. Rushby and D. W. J. Stringer-Calvert},
+        ORGANIZATION = csl,
+        ADDRESS = mp,
+        MONTH = sep,
+        YEAR = 1999
+}
+
+
+
+
