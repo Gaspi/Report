@@ -4,6 +4,37 @@
 %
 
 \begin{bnf}
+
+\production{Number}{\ite{\hlink{Digit}}}
+\production{Digit}{\lit{0} \choice \ldots \choice \lit{9}}
+%
+%\production{Name}
+%{ \lit{true}  \choice \lit{false}  \\[-0.1in]
+%& \choice & \lit{number_field_pred} \choice \lit{real_pred} \\[-0.1in]
+%& \choice & \lit{integer_pred} \choice \lit{integer?} \\[-0.1in]
+%& \choice & \lit{rational_pred} \choice \lit{floor} \choice \lit{ceiling} \\[-0.1in]
+%& \choice & \lit{rem} \choice \lit{ndiv} \choice \lit{even?} \\[-0.1in]
+%& \choice & \lit{odd?} \choice \lit{cons} \choice \lit{car} \\[-0.1in]
+%& \choice & \lit{cdr} \choice \lit{cons?} \choice \lit{null} \\[-0.1in]
+%& \choice & \lit{null?} \choice \lit{restrict} \choice \lit{length} \\[-0.1in]
+%& \choice & \lit{member} \choice \lit{nth} \choice \lit{append} \choice \lit{reverse} }
+
+\production{Binop}
+{ \lit{=}  \choice \lit{\textbackslash =} \choice \lit{IMPLIES} \choice \lit{=>} \\[-0.1in]
+& \choice & \lit{<=>} \choice \lit{AND} \choice \lit{&} \\[-0.1in]
+& \choice & \lit{OR} \choice \lit{IFF} \choice \lit{WHEN}\\[-0.1in]
+& \choice & \lit{OR} \choice \lit{WHEN} \choice \lit{IFF}\\[-0.1in]
+& \choice & \lit{+} \choice \lit{-} \choice \lit{*} \choice \lit{/}\\[-0.1in]
+& \choice & \lit{$<$} \choice \lit{$<=$} \choice \lit{$>$} \choice \lit{$>=$}}
+
+\production{Unaryop}{ \lit{NOT}  \choice \lit{-}}
+
+\production{Arguments}
+{\lit{(} \ites{\hlink{Expr}}{,} \lit{)}}
+
+
+
+
 \hproduction{if-expr}{IfExpr}
 {\lit{IF} \hlink{Expr} \lit{THEN} \hlink{Expr} \\[-0.1in]
 & & \rep{\brc{\lit{ELSIF} \hlink{Expr} \lit{THEN} \hlink{Expr}}} \lit{ELSE} \hlink{Expr} \lit{ENDIF}}
@@ -40,7 +71,6 @@
 \production{LetBind}
 {\hlink{IdOp}\ \rep{\hlink{Bindings}} \opt{\lit{:} \hlink{TypeExpr}}}
 
-\production{Arguments}
-{\lit{(} \ites{\hlink{Expr}}{,} \lit{)}}
+
 
 \end{bnf}
