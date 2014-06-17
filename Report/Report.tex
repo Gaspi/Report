@@ -94,7 +94,17 @@ Nom et adresse de l'organisme :  & SRI International \\
 
 \section{Translating PVS to C}
 
-We only convert a fragment of PVS.
+
+\section{Parsing and typechecking PVS}
+These two task we leave to PVS native parser and typechecker.
+
+The parser generates objects representing the expressions of the theory.
+
+We only convert a subset of PVS.
+This subset is defined by a subset of expression objects we can translate.
+The objective is, of course, to be able to translate the maximum of (if not all) PVS expression objects.
+
+
 
 \section{PVS Syntax}
 We describe here the syntax of PVS and the objects system used to represent them in Lisp. Some slots of the classes are voluntarily omitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
@@ -134,15 +144,15 @@ Here we describe how PVS types are represented in Lisp. The syntax of PVS we all
 \end{class}
 
 
-
-
+\section{Translating types}
+PVS types:\\
 boolean, number, number\_field, real, 
 rational, integer, $A \rightarrow B$, restricted types
 $\text{below}(10) := \{ x:\text{int} | 0 \leq x < 10 \} $)  \\
 enum
 datatype
 
-C types:
+C types:\\
 [unsigned] char, int, long, double
 boolean
 arrays
@@ -152,10 +162,14 @@ struct
 and others: short int, float, union, size\_t, ...
 
 
+We can only translate a subset of all PVS types.
+What's missing ?
 
-\subsection{Fragment of PVS syntax}
+\subsection{Translating PVS syntax}
 
 
+We can only translate a subset of PVS syntax.
+What's missing ?
 
 
 
@@ -166,58 +180,19 @@ update-expr
 
 
 
-
-\section{Other activities at SRI}
-
-Robin project, HACMS \\
-Contest week-end 14-15 June \\
-Summer School \\
-
-
-
-
-
-
 \section{Other works at SRI}
+
 Discovering PVS :
 Translating Coq proofs to PVS
 PVS library for basic linear algebra
 
-
-HACMS with Robin
-Parsing Lisp code -> generate HTML architecture file
+Robin project, HACMS \\
+Contest week-end 14-15 June \\
+Summer School \\
+Parsing Lisp code -> generate HTML architecture file\\
 Correcting translator PVS to SMT-LIB
 
-Summer school
 
-
-
-
-
-
-Try using bibtex here
-
--- PVS --
-
-PVS API Reference
-PVS Lisp sources (github rep)
-PVS language Reference
-PVS System Guide
-PVS Prelude library
-
--- Lisp --
-Common Lisp Guy L. Steele Jr
-
--- C-- 
-The C Library Reference Guide, Eric Huss
-
--- Other --
-Compilation course, J.C. Filliatre
-
-
-\cite{PVS:language}
-\cite{PVS:manuals}
-\cite{PVS:userguide}
 
 
 \bibliographystyle{plain}
