@@ -5,72 +5,82 @@
 
 \begin{bnf}
 
+\production{Expr}{
+\hlink{Number} \\[-0.1in] & \choice &
+\hlink{Name} \\[-0.1in] & \choice &
+Expr\ \hlink{Arguments} \\[-0.1in] & \choice &
+Expr\ \hlink{Binop}\ Expr \\[-0.1in] & \choice &
+\hlink{Unaryop}\ Expr \\[-0.1in] & \choice &
+Expr \lit{`} \brc{ \hlink{Id} \choice \hlink{Number} } \\[-0.1in] & \choice &
+\lit{(} \ites{Expr}{,} \lit{)} \\[-0.1in] & \choice &
+\lit{(\#} \ites{\hlink{Assignment}}{,} \lit{\#)} \\[-0.1in] & \choice &
+\hlink{IfExpr} \\[-0.1in] & \choice &
+\lit{LET} \ites{\hlink{LetBinding}}{,} \lit{IN} Expr  \\[-0.1in] & \choice &
+Expr \lit{WHERE} \ites{\hlink{LetBinding}}{,}  \\[-0.1in] & \choice &
+Expr \lit{WITH} \lit{[} \ites{\hlink{Assignment}}{,} \lit{]} \\[-0.1in] & \choice &}
+
 \production{Number}{\ite{\hlink{Digit}}}
+\production{Id}{\hlink{Letter} \ite{\hlink{IdChar}}}
+\production{IdChar}{\hlink{Letter} \choice \hlink{Digit}}
+\production{Letter}{\lit{A} \choice \ldots \choice \lit{Z}}
 \production{Digit}{\lit{0} \choice \ldots \choice \lit{9}}
-%
-%\production{Name}
-%{ \lit{true}  \choice \lit{false}  \\[-0.1in]
-%& \choice & \lit{number_field_pred} \choice \lit{real_pred} \\[-0.1in]
-%& \choice & \lit{integer_pred} \choice \lit{integer?} \\[-0.1in]
-%& \choice & \lit{rational_pred} \choice \lit{floor} \choice \lit{ceiling} \\[-0.1in]
-%& \choice & \lit{rem} \choice \lit{ndiv} \choice \lit{even?} \\[-0.1in]
-%& \choice & \lit{odd?} \choice \lit{cons} \choice \lit{car} \\[-0.1in]
-%& \choice & \lit{cdr} \choice \lit{cons?} \choice \lit{null} \\[-0.1in]
-%& \choice & \lit{null?} \choice \lit{restrict} \choice \lit{length} \\[-0.1in]
-%& \choice & \lit{member} \choice \lit{nth} \choice \lit{append} \choice \lit{reverse} }
-
-\production{Binop}
-{ \lit{=}  \choice \lit{\textbackslash =} \choice \lit{IMPLIES} \choice \lit{=>} \\[-0.1in]
-& \choice & \lit{<=>} \choice \lit{AND} \choice \lit{&} \\[-0.1in]
-& \choice & \lit{OR} \choice \lit{IFF} \choice \lit{WHEN}\\[-0.1in]
-& \choice & \lit{OR} \choice \lit{WHEN} \choice \lit{IFF}\\[-0.1in]
-& \choice & \lit{+} \choice \lit{-} \choice \lit{*} \choice \lit{/}\\[-0.1in]
-& \choice & \lit{$<$} \choice \lit{$<=$} \choice \lit{$>$} \choice \lit{$>=$}}
-
-\production{Unaryop}{ \lit{NOT}  \choice \lit{-}}
 
 \production{Arguments}
 {\lit{(} \ites{\hlink{Expr}}{,} \lit{)}}
 
-
-
-
-\hproduction{if-expr}{IfExpr}
+\production{IfExpr}
 {\lit{IF} \hlink{Expr} \lit{THEN} \hlink{Expr} \\[-0.1in]
 & & \rep{\brc{\lit{ELSIF} \hlink{Expr} \lit{THEN} \hlink{Expr}}} \lit{ELSE} \hlink{Expr} \lit{ENDIF}}
 
-\production{BindingOp}
-{\lit{LAMBDA} \choice \lit{FORALL} \choice \lit{EXISTS} \choice \{ \hlink{IdOp} \lit{!} \}} 
+\production{Name}{
+\lit{true}  \choice \lit{false} \choice \lit{number\_field\_pred} \choice \lit{real\_pred} \\[-0.1in]
+& \choice & \lit{integer\_pred} \choice \lit{integer?} \choice \lit{rational\_pred} \\[-0.1in]
+& \choice & \lit{floor} \choice \lit{ceiling} \choice \lit{rem} \choice \lit{ndiv} \choice \lit{even?} \choice \lit{odd?} \\[-0.1in]
+& \choice & \lit{cons} \choice \lit{car} \choice \lit{cdr} \choice \lit{cons?} \choice \lit{null} \choice \lit{null?} \\[-0.1in]
+& \choice & \lit{restrict} \choice \lit{length} \choice \lit{member} \choice \lit{nth} \choice \lit{append} \choice \lit{reverse}}
 
-\production{IdOps}
-{\ites{\hlink{IdOp}}{,}}
+\production{Binop}{
+\lit{=}  \choice \lit{\char'134 =} \choice \lit{OR} \choice \lit{\char'134 /} \choice \lit{AND} \choice \lit{\&} \choice \lit{/\char'134} \\[-0.1in]
+& \choice & \lit{IMPLIES} \choice \lit{=>}  \choice \lit{WHEN} \choice \lit{IFF} \choice \lit{<=>} \\[-0.1in]
+& \choice & \lit{+} \choice \lit{-} \choice \lit{*} \choice \lit{/} \choice \lit{<} \choice \lit{<=} \choice \lit{>} \choice \lit{>=}}
 
-\production{IdOp}
-{\hlink{Id} \ch \hlink{Opsym} \ch \hlink{Number}}
+\production{Unaryop}{ \lit{NOT}  \choice \lit{-}}
 
-\hproduction{assignment}{Assignment}
-{\hlink{AssignArgs} \brc{\lit{:=} \choice \lit{|->}} \hlink{Expr}}
+\production{Assignment}
+{ \ite{\hlink{AssignArg}} \brc{\lit{:=} \choice \lit{|->}} \hlink{Expr}}
 
-\production{AssignArgs}
-{\hlink{Id} \opt{\lit{!} \hlink{Number}}\\[-0.1in]
-& \choice & \hlink{Number}\\[-0.1in]
-& \choice & \ite{\hlink{AssignArg}}}
-
-
-\hproduction{field-assignment-arg}{AssignArg}
+\production{AssignArg}
 {\lit{(} \ites{\hlink{Expr}}{,} \lit{)} \\[-0.1in]
 & \choice & \lit{`} \hlink{Id} \\[-0.1in]
 & \choice & \lit{`} \hlink{Number}}
-
-\hproduction{selection}{Selection}
-{\hlink{IdOp} \opt{\lit{(} \hlink{IdOps} \lit{)}} \lit{:} \hlink{Expr}}
 
 \production{LetBinding}
 {\brc{\hlink{LetBind} \choice \lit{(} \ites{\hlink{LetBind}}{,} \lit{)}} \lit{=} \hlink{Expr}}
 
 \production{LetBind}
-{\hlink{IdOp}\ \rep{\hlink{Bindings}} \opt{\lit{:} \hlink{TypeExpr}}}
-
-
+{ \hlink{Id} \opt{\lit{:} \hlink{TypeExpr}}}
 
 \end{bnf}
+
+
+%\production{AssignArgs}
+%{\hlink{Id} \opt{\lit{!} \hlink{Number}}\\[-0.1in]
+%& \choice & \hlink{Number}\\[-0.1in]
+%& \choice & \ite{\hlink{AssignArg}}}
+
+%\production{IdOp}
+%{\hlink{Id} \ch \hlink{Opsym} \ch \hlink{Number}}
+%
+%\production{Opsym}
+%{\hlink{Binop} \choice \hlink{Unaryop} \choice \lit{TRUE}
+%\choice \lit{FALSE}}
+
+
+%\production{BindingOp}
+%{\lit{LAMBDA} \choice \lit{FORALL} \choice \lit{EXISTS} \choice \{ \hlink{IdOp} \lit{!} \}}
+
+%\production{IdOps}
+%{\ites{\hlink{IdOp}}{,}}
+
+%\production{Selection}
+%{\hlink{IdOp} \opt{\lit{(} \hlink{IdOps} \lit{)}} \lit{:} \hlink{Expr}}
