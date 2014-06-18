@@ -151,6 +151,42 @@ $\text{below}(10) := \{ x:\text{int} | 0 \leq x < 10 \} $)  \\
 enum
 datatype
 
+
+
+Auxiliary type system :
+C-type with a flag : mutable (meaning that the expression it describes only has one pointer pointing to it.
+
+
+int a = 2;     a : int[mutable]
+int* a = malloc( 10 * sizeof(int*) );  
+
+destructive add:
+
+d_add(*mpz_t res, mpz_t[mutable] a, long b) {
+  mpz_add(a, a, b);
+  (*res) = a;
+}
+Rq : d_add is given a mutable mpz_t, meaning that it can modify it and is responsible for freeing it.
+It is also responsible for allocating memory for the result.
+Here it uses the memory to assign res.
+
+
+
+Use an auxiliary language :
+
+( expr, C-type[mutable] )
+
+Conversions and copies create mutables types (at a cost) :
+a[mutable]_from_b
+
+
+
+
+
+
+
+
+
 C types:\\
 [unsigned] char, int, long, double
 boolean
@@ -159,6 +195,14 @@ strings
 enum
 struct
 and others: short int, float, union, size\_t, ...
+
+
+
+
+
+
+
+
 
 
 We can only translate a subset of all PVS types.
