@@ -222,39 +222,6 @@ update-expr
 
 
 
-Avoiding copies :
-
-
-Algorithm :
-
-Always have a "non destructive" version of any function. A "cautious" version that always make copies when a "mutable" version of an array is necessary (for instance updates).
-
-In destructive versions of all functions :
-Flag all array arguments to "mutable".
-Then for each of these arguments :
-  - If it never occurs destructively, then remove flag
-          (function just observe the arg)
-  - If it occurs destructively, it can never occur at all AFTER.
-  -> Need to define the order of evaluation of expression
-      (easy rules on simple expressions)
-  -> Need to be able to detect occurences of a name-expr
-  -> Otherwise, unflag the arg
-
-What is a destructive occurence :
-
-f(  t with [ e1 := e2 ] , t(0) )
-order of eval :
-e1 and e2  (t can occur non destr)
-t          ( expression of an update : destr)
-t(0)       ( occurence of t (even non destr))
-
-f( g(t), t)
-if g has type [Array! -> ?] then t can't be destructive
-if g has type [Array  -> ?] then t can be destructive
-
-need multiple passes as the flags disappear
-
-
 
 \section{Other works at SRI}
 
