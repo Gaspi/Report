@@ -90,6 +90,22 @@ free exb;
 
 
 
-To discuss :
- - BigInt , how to use them ?
- - Closures,  complicated structure ?
+
+
+
+
+Pre-compilation rules : pc
+
+
+t with [ e1 := e2 ]
+-> pc(e1)
+-> pc(e2)
+-> update( )
+
+f(x, y)
+-> pc(x)
+-> pc(y)
+
+
+
+
