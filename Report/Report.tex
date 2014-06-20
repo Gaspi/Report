@@ -20,7 +20,7 @@
 
 % --- Partie code
 \usepackage{listings}
-\lstset{language=Java} % Changer eventuellement le nom du langage
+\lstset{language=C} % Changer eventuellement le nom du langage
 \newcommand{\codeline}[1]{\texttt{#1}}
 
 % --- Parti math. (app.)
@@ -156,17 +156,21 @@ datatype
 Auxiliary type system :
 C-type with a flag : mutable (meaning that the expression it describes only has one pointer pointing to it.
 
-
+\begin{lstlisting}
 int a = 2;     a : int[mutable]
 int* a = malloc( 10 * sizeof(int*) );  
+\end{lstlisting}
 
-destructive add:
+destructive addition:
 
+\begin{lstlisting}
 d_add(*mpz_t res, mpz_t[mutable] a, long b) {
   mpz_add(a, a, b);
   (*res) = a;
 }
-Rq : d_add is given a mutable mpz_t, meaning that it can modify it and is responsible for freeing it.
+\end{lstlisting}
+
+Rq : \codeline{d\_add} is given a mutable \codeline{mpz\_t}, meaning that it can modify it and is responsible for freeing it.
 It is also responsible for allocating memory for the result.
 Here it uses the memory to assign res.
 
@@ -174,10 +178,12 @@ Here it uses the memory to assign res.
 
 Use an auxiliary language :
 
+\begin{lstlisting}
 ( expr, C-type[mutable] )
+\end{lstlisting}
 
 Conversions and copies create mutables types (at a cost) :
-a[mutable]_from_b
+\codeline{a[mutable]\_from\_b}
 
 
 
@@ -218,16 +224,120 @@ What's missing ?
 
 \subsection{Difficulties}
 if-expr
-update-expr
+
+
+\subsubsection{ Update expressions }
+Update expressions are represented by PVS as \texttt{update-expr} objects.
+
+$$ E := \texttt{ t with [ e1 := e2 ] } $$
+
+
+Problem :
+\codeline{t} is an expression typed as a function. Therefore it might be represented in C as an array (if domain type is \codeline{below($n$)}.
+We want to know if we can update \codeline{t} in place to obtain a C object representing \codeline{E} or if we have to make a copy of \codeline{t}.
+
+Three solutions :
+
+- Pointer counting :
+
+We keep track of the number of pointer pointing to an array or a struct.
+
+This requires to build our own C struct (heavy)
+\begin{lstlisting}
+struct array_int {
+   int pointer_count = 1;
+   int *data;
+};
+\end{lstlisting}
+
+When we update the struct, if the pointer is 0, we update in place.\\
+
+Besides every update require now to read the structure and make a test (small compared to a copy but no so small compared to a single in place update)\\
+
+Besides, the creation / destruction gets more complicated\\
+
+Passing argument to function :
+\begin{lstlisting}
+array_int f(array_int arg) {
+   arg.pointer_count++;  \\ Since now f also have a pointer to the struct
+   if (arg.pointer_count == 1) {
+      arg.data[0] = 0;
+      return arg;
+   } else {
+      array_int res;
+      res.data = malloc( 10 * sizeof(int*) );
+      copy(res, arg);  // Very long...
+      res.pointer_count --; // This function is about to lose its pointer to res
+      return res;
+   }
+}
+
+void main() {
+   array_int t;
+   init(t);  // somehow...
+   
+   t.pointer_counter --;  // We assure we won't use the pointer "t" to the array anymore
+   array_int r = f(t);
+   t = null; // This way we garantee the variable "t" won't be used later in the code
+   
+   [...]   
+}
+\end{lstlisting}
+
+This add quite some code compared to the simple :
+
+\begin{lstlisting}
+array_int f(array_int arg) {
+   arg[0] = 0;
+   return arg;
+}
+
+void main() {
+   array_int t;
+   init(t);  // somehow...
+   array_int r = f(t);
+   
+   [...]   
+}
+\end{lstlisting}
 
 
 
-Avoiding copies :
+- Using a different data structure
+
+PVS uses arrays in a very particular way, we might then represent them with an other structure than just only a C array.
+For example :
+
+\begin{lstlisting}
+struct r_list_int {
+   int k;
+   int v;
+   r_list_int tl;
+};
+
+struct array_int {
+   int *data;
+   r_list_int replacement_list;
+};
+\end{lstlisting}
+
+Each structure represent the array \codeline{data} with the modifications contained in the linked list \codeline{r\_list\_int}
+
+Problems : Just as the previous solution :
+- add some extra code
+- add some extra computation (runtime tests)
+- require to create as many structures and associated functions as there are range type fo the manipulated arrays
+
+
+- Third solution :
+
+Trying to avoid copying arrays by analyzing the code.
+2 different functions (destructive and non destructive)
 
 
 Algorithm :
 
-Always have a "non destructive" version of any function. A "cautious" version that always make copies when a "mutable" version of an array is necessary (for instance updates).
+Always have a "non destructive" version of any function. A "cautious" version that never modify the arguments in place and always make copies when necessary (when a "mutable" version of an array is necessary (for instance updates)).
 
 In destructive versions of all functions :
 Flag all array arguments to "mutable".
@@ -241,8 +351,7 @@ Then for each of these arguments :
   -> Otherwise, unflag the arg
 
 What is a destructive occurence :
-
-f(  t with [ e1 := e2 ] , t(0) )
+$$ E :=  \codeline{f(  t with [ e1 := e2 ] , t(0) )} $$
 order of eval :
 e1 and e2  (t can occur non destr)
 t          ( expression of an update : destr)
@@ -253,6 +362,12 @@ if g has type [Array! -> ?] then t can't be destructive
 if g has type [Array  -> ?] then t can be destructive
 
 need multiple passes as the flags disappear
+
+
+
+
+
+
 
 
 
