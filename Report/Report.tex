@@ -36,13 +36,15 @@
 
 \newcommand{\N}{\mathbb{N}}
 \newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\Esp}{\mathbb{E}}
 %\newcommand{\E}{\mathbb{E}} % Si tu l'utilise beaucoup
 \newcommand{\Prob}{\mathbb{P}}
 %\newcommand{\P}{\mathbb{P}} % Si tu l'utilise beaucoup
 
-
+\newcommand{\mpzt}{\texttt{mpz\_t}}
+\newcommand{\mpqt}{\texttt{mpq\_t}}
 
 \title{
 \vspace{-3cm}
@@ -170,7 +172,7 @@ d_add(*mpz_t res, mpz_t[mutable] a, long b) {
 }
 \end{lstlisting}
 
-Rq : \codeline{d\_add} is given a mutable \codeline{mpz\_t}, meaning that it can modify it and is responsible for freeing it.
+Rq : \codeline{d\_add} is given a mutable \mpzt, meaning that it can modify it and is responsible for freeing it.
 It is also responsible for allocating memory for the result.
 Here it uses the memory to assign res.
 
@@ -223,7 +225,69 @@ What's missing ?
 
 
 \subsection{Difficulties}
-if-expr
+
+\subsubsection{\texttt{if} expressions}
+Represented by \texttt{if-expr}
+
+\subsubsection{Integer, rationnals}
+In PVS, the \texttt{integer} represent the whole set $\Z$ of all relative numbers (and \texttt{rational} also describe $\Q$).
+In C, we have finite types
+int, long, ...
+
+We need the GMP library which introduces the types \mpzt and \mpqt.
+These types are arrays and should be used just as integer (not as pointers except they still need to be freed).
+
+
+\subsubsection{ Garbage collection }
+
+We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage}.\\
+
+We maintain a hashtable of pointer counters.
+Each pointer in the code is a key in the hastable to which we associate an int counter as value.\\
+
+Pointers only occurs in arrays or struct.\\
+
+Arrays are created in the code.\\
+
+
+\begin{lstlisting}
+T* a = b;
+\end{lstlisting}
+becomes
+\begin{lstlisting}
+T* a = GC( b ); // Should not happen often...
+\end{lstlisting}
+
+\begin{lstlisting}
+t[0] = b;  // with b of type T*
+\end{lstlisting}
+becomes
+\begin{lstlisting}
+GC_free( t[0] );
+t[0] = (T*) GC( b );
+\end{lstlisting}
+
+Examples
+
+\begin{lstlisting}
+int* f() {
+  int* res;
+  res = (int*) GC_alloc( 10 * sizeof(int) );
+  [... init res...]
+  return res; // pointer count = 1
+}
+
+void main() {
+   int* a = f();  // pointer counter of a = 1
+   int** b = (int**) GC_alloc( sizeof( int*) );
+   GC_free( b[0] );  // useless
+   b[0] = (int*) GC( a );  // pointer counter of a = 2
+   printf("f(0) = %s", b[0][0]);
+   GC_free(b); // frees b, pointer count of a = 1
+   GC_free(a); // frees a
+}
+\end{lstlisting}
+
 
 
 \subsubsection{ Update expressions }
