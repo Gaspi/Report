@@ -116,6 +116,107 @@ We describe here the syntax of PVS and the objects system used to represent them
 
 
 
+\begin{class}{expr}{abstract}{\classhln{syntax}}
+{\slotidx{type} & the type of the expression}
+\end{class}
+
+\begin{class}{name}{mixin}{\classhln{syntax}}
+{\slotidx{id} & the identifier \\
+ \slotidx{actuals} & a list of actual parameters \\
+ \slotidx{resolutions} & singleton}
+This is a mixin for names, i.e., \texttt{name-expr}s, \texttt{type-name}s, etc.
+\end{class}
+
+\begin{class}{name-expr}{}{\classhln{name} \classhln{expr}}{}
+\end{class}
+
+\begin{class}{number-expr}{}{\classhln{expr}}{\slotidx{number} & a nonnegative integer}
+\end{class}
+
+\begin{class}{tuple-expr}{}{\classhln{expr}}{\slotidx{exprs} & a list of expressions}
+\end{class}
+
+\begin{class}{application}{}{\classhln{expr}}%
+{\slotidx{operator} & an expr \\
+ \slotidx{argument} & an expr (maybe a tuple-expr)}
+\end{class}
+
+\begin{class}{field-application}{}{\classhln{expr}}%
+{\slotidx{id} & identifier \\
+ \slotidx{actuals} & a list of actuals \\
+ \slotidx{argument} & the argument}
+A field application is the internal representation for record extraction,
+e.g., \texttt{r`a}
+\end{class}
+
+\begin{class}{record-expr}{}{\classhln{expr}}{\slotidx{assignments} & a list of assignments}
+\end{class}
+
+\begin{class}{lambda-expr}{}{\classhln{binding-expr}}{}
+This is the subclass of \texttt{binding-expr} used for LAMBDA expressions.
+\end{class}
+
+\begin{class}{if-expr}{}{\classhln{application}}{}
+When an application has an operator that resolves to the \texttt{if\_def} it is changed to this class.
+\end{class}
+
+\begin{class}{update-expr}{}{\classhln{expr}}
+{\slotidx{expression} & an expr \\
+ \slotidx{assignments} & a list of assignments}
+An update expression of the form \texttt{e WITH [x := 1, y := 2]}, maps to
+an \texttt{update-expr} instance, where the \texttt{expression} is
+\texttt{e}, and the \texttt{assignments} slot is set to the list of
+generated \texttt{assigment} instances.  Note that these are very
+succinct representations, but correspondingly difficult to typecheck or to
+translate to other systems (e.g., decision procedures).  See the
+description of the function \codeline{translate-update-to-if!} for more
+ details.
+\end{class}
+
+\begin{class}{assignment}{}{\classhln{syntax}}
+{\slotidx{arguments} & the list of arguments \\
+ \slotidx{expression} & the value expression}
+Assignments occur in both record-exprs and update-exprs.  The
+\texttt{arguments} form is a list of lists.  For example, given the
+assignment \texttt{`a(x, y)`1 := 0}, the \texttt{arguments} are
+\texttt{((a) (x y) (1))} and the \texttt{expression} is \texttt{0}.
+\end{class}
+
+
+
+
+
+
+
+Translation rules :
+
+\begin{lstlisting}
+number-expr "2"
+(C-int, "2", [], [])
+
+number-expr "12315468453213"
+(C-mpz, nil,
+        [mpz_t ~a; | mpz_t_init("12315468453213"); ],
+        [mpz_clear ~a;])
+
+application "f(e1, e2)"
+(C-mpz, nil,
+       [ instr(e1) | instr(e2)
+                   | mpz(~a); | f(~a, e1, e2) ]
+       [mpz_clear(~a);]
+
+
+
+
+
+\end{lstlisting}
+
+
+
+
+
+
+
 \section{Types}
 A PVS theory can be typechecked using the emacs interface \codeline{M-x typecheck} or with Lisp function \codeline{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
@@ -216,6 +317,9 @@ and others: short int, float, union, size\_t, ...
 We can only translate a subset of all PVS types.
 What's missing ?
 
+
+
+
 \subsection{Translating PVS syntax}
 
 
@@ -225,6 +329,10 @@ What's missing ?
 
 
 \subsection{Difficulties}
+
+
+
+
 
 \subsubsection{\texttt{if} expressions}
 Represented by \texttt{if-expr}
