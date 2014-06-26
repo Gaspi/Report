@@ -91,13 +91,15 @@ Nom et adresse de l'organisme :  & SRI International \\
 
 \section{Introduction}
 
-\section{PVS}
 
+\section{SRI}
 
-\section{Translating PVS to C}
+\subsection{The HACMS Project}
 
+\subsection{PVS}
 
-\section{Parsing and typechecking PVS}
+\subsection{Translating PVS}
+\subsubsection{Parsing and typechecking PVS}
 These two task we leave to PVS native parser and typechecker.
 
 The parser generates objects representing the expressions of the theory.
@@ -106,9 +108,18 @@ We only convert a subset of PVS.
 This subset is defined by a subset of expression objects we can translate.
 The objective is, of course, to be able to translate the maximum of (if not all) PVS expression objects.
 
+\subsubsection{Other translator}
+- Common Lisp (native)
+- Clean
+- Yices
 
 
-\section{PVS Syntax}
+
+
+\section{Translating PVS Syntax}
+
+\subsection{PVS Syntax}
+
 We describe here the syntax of PVS and the objects system used to represent them in Lisp. Some slots of the classes are voluntarily omitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
 
 \input{includes/bnf-expr-aux}
@@ -184,9 +195,16 @@ assignment \texttt{`a(x, y)`1 := 0}, the \texttt{arguments} are
 
 
 
+\subsection{Translator architecture}
+
+Describe here the Lisp functions and data structures
+Skeleton
+Expected input
+Output objects
+Assertions that we (try to) maintain
 
 
-
+\subsection{A few translation rule}
 
 Translation rules :
 
@@ -204,20 +222,13 @@ application "f(e1, e2)"
        [ instr(e1) | instr(e2)
                    | mpz(~a); | f(~a, e1, e2) ]
        [mpz_clear(~a);]
-
-
-
-
-
 \end{lstlisting}
 
 
 
-
-
-
-
 \section{Types}
+
+\subsection{PVS Types}
 A PVS theory can be typechecked using the emacs interface \codeline{M-x typecheck} or with Lisp function \codeline{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
 Here we describe how PVS types are represented in Lisp. The syntax of PVS we allow
@@ -246,7 +257,7 @@ Here we describe how PVS types are represented in Lisp. The syntax of PVS we all
 \end{class}
 
 
-\section{Translating types}
+\subsection{Translating types}
 PVS types:\\
 boolean, number, number\_field, real, 
 rational, integer, $A \rightarrow B$, restricted types
@@ -328,16 +339,13 @@ What's missing ?
 
 
 
-\subsection{Difficulties}
+\section{Difficulties and successes}
 
 
-
-
-
-\subsubsection{\texttt{if} expressions}
+\subsection{\texttt{if} expressions}
 Represented by \texttt{if-expr}
 
-\subsubsection{Integer, rationnals}
+\subsection{Integer, rationnals}
 In PVS, the \texttt{integer} represent the whole set $\Z$ of all relative numbers (and \texttt{rational} also describe $\Q$).
 In C, we have finite types
 int, long, ...
@@ -346,7 +354,7 @@ We need the GMP library which introduces the types \mpzt and \mpqt.
 These types are arrays and should be used just as integer (not as pointers except they still need to be freed).
 
 
-\subsubsection{ Garbage collection }
+\subsection{ Garbage collection }
 
 We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage}.\\
 
@@ -398,7 +406,7 @@ void main() {
 
 
 
-\subsubsection{ Update expressions }
+\subsection{ Update expressions }
 Update expressions are represented by PVS as \texttt{update-expr} objects.
 
 $$ E := \texttt{ t with [ e1 := e2 ] } $$
@@ -539,11 +547,16 @@ need multiple passes as the flags disappear
 
 
 
+\subsection{Closures}
+
+Nothing now
 
 
+\section{Conclusion}
 
+\subsection{What's left to be done ?}
 
-\section{Other works at SRI}
+\subsection{My stay at SRI}
 
 Discovering PVS :
 Translating Coq proofs to PVS
