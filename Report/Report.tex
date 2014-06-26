@@ -354,7 +354,7 @@ We need the GMP library which introduces the types \mpzt and \mpqt.
 These types are arrays and should be used just as integer (not as pointers except they still need to be freed).
 
 
-\subsection{ Garbage collection }
+\subsection{Garbage collection }
 
 We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage}.\\
 
@@ -405,8 +405,9 @@ void main() {
 \end{lstlisting}
 
 
+\subsection{Performance}
 
-\subsection{ Update expressions }
+\subsection{Update expressions}
 Update expressions are represented by PVS as \texttt{update-expr} objects.
 
 $$ E := \texttt{ t with [ e1 := e2 ] } $$
