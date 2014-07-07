@@ -36,13 +36,15 @@
 
 \newcommand{\N}{\mathbb{N}}
 \newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\Esp}{\mathbb{E}}
 %\newcommand{\E}{\mathbb{E}} % Si tu l'utilise beaucoup
 \newcommand{\Prob}{\mathbb{P}}
 %\newcommand{\P}{\mathbb{P}} % Si tu l'utilise beaucoup
 
-
+\newcommand{\mpzt}{\texttt{mpz\_t}}
+\newcommand{\mpqt}{\texttt{mpq\_t}}
 
 \title{
 \vspace{-3cm}
@@ -89,13 +91,15 @@ Nom et adresse de l'organisme :  & SRI International \\
 
 \section{Introduction}
 
-\section{PVS}
 
+\section{SRI}
 
-\section{Translating PVS to C}
+\subsection{The HACMS Project}
 
+\subsection{PVS}
 
-\section{Parsing and typechecking PVS}
+\subsection{Translating PVS}
+\subsubsection{Parsing and typechecking PVS}
 These two task we leave to PVS native parser and typechecker.
 
 The parser generates objects representing the expressions of the theory.
@@ -104,9 +108,18 @@ We only convert a subset of PVS.
 This subset is defined by a subset of expression objects we can translate.
 The objective is, of course, to be able to translate the maximum of (if not all) PVS expression objects.
 
+\subsubsection{Other translator}
+- Common Lisp (native)
+- Clean
+- Yices
 
 
-\section{PVS Syntax}
+
+
+\section{Translating PVS Syntax}
+
+\subsection{PVS Syntax}
+
 We describe here the syntax of PVS and the objects system used to represent them in Lisp. Some slots of the classes are voluntarily omitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
 
 \input{includes/bnf-expr-aux}
@@ -114,7 +127,108 @@ We describe here the syntax of PVS and the objects system used to represent them
 
 
 
+\begin{class}{expr}{abstract}{\classhln{syntax}}
+{\slotidx{type} & the type of the expression}
+\end{class}
+
+\begin{class}{name}{mixin}{\classhln{syntax}}
+{\slotidx{id} & the identifier \\
+ \slotidx{actuals} & a list of actual parameters \\
+ \slotidx{resolutions} & singleton}
+This is a mixin for names, i.e., \texttt{name-expr}s, \texttt{type-name}s, etc.
+\end{class}
+
+\begin{class}{name-expr}{}{\classhln{name} \classhln{expr}}{}
+\end{class}
+
+\begin{class}{number-expr}{}{\classhln{expr}}{\slotidx{number} & a nonnegative integer}
+\end{class}
+
+\begin{class}{tuple-expr}{}{\classhln{expr}}{\slotidx{exprs} & a list of expressions}
+\end{class}
+
+\begin{class}{application}{}{\classhln{expr}}%
+{\slotidx{operator} & an expr \\
+ \slotidx{argument} & an expr (maybe a tuple-expr)}
+\end{class}
+
+\begin{class}{field-application}{}{\classhln{expr}}%
+{\slotidx{id} & identifier \\
+ \slotidx{actuals} & a list of actuals \\
+ \slotidx{argument} & the argument}
+A field application is the internal representation for record extraction,
+e.g., \texttt{r`a}
+\end{class}
+
+\begin{class}{record-expr}{}{\classhln{expr}}{\slotidx{assignments} & a list of assignments}
+\end{class}
+
+\begin{class}{lambda-expr}{}{\classhln{binding-expr}}{}
+This is the subclass of \texttt{binding-expr} used for LAMBDA expressions.
+\end{class}
+
+\begin{class}{if-expr}{}{\classhln{application}}{}
+When an application has an operator that resolves to the \texttt{if\_def} it is changed to this class.
+\end{class}
+
+\begin{class}{update-expr}{}{\classhln{expr}}
+{\slotidx{expression} & an expr \\
+ \slotidx{assignments} & a list of assignments}
+An update expression of the form \texttt{e WITH [x := 1, y := 2]}, maps to
+an \texttt{update-expr} instance, where the \texttt{expression} is
+\texttt{e}, and the \texttt{assignments} slot is set to the list of
+generated \texttt{assigment} instances.  Note that these are very
+succinct representations, but correspondingly difficult to typecheck or to
+translate to other systems (e.g., decision procedures).  See the
+description of the function \codeline{translate-update-to-if!} for more
+ details.
+\end{class}
+
+\begin{class}{assignment}{}{\classhln{syntax}}
+{\slotidx{arguments} & the list of arguments \\
+ \slotidx{expression} & the value expression}
+Assignments occur in both record-exprs and update-exprs.  The
+\texttt{arguments} form is a list of lists.  For example, given the
+assignment \texttt{`a(x, y)`1 := 0}, the \texttt{arguments} are
+\texttt{((a) (x y) (1))} and the \texttt{expression} is \texttt{0}.
+\end{class}
+
+
+
+\subsection{Translator architecture}
+
+Describe here the Lisp functions and data structures
+Skeleton
+Expected input
+Output objects
+Assertions that we (try to) maintain
+
+
+\subsection{A few translation rule}
+
+Translation rules :
+
+\begin{lstlisting}
+number-expr "2"
+(C-int, "2", [], [])
+
+number-expr "12315468453213"
+(C-mpz, nil,
+        [mpz_t ~a; | mpz_t_init("12315468453213"); ],
+        [mpz_clear ~a;])
+
+application "f(e1, e2)"
+(C-mpz, nil,
+       [ instr(e1) | instr(e2)
+                   | mpz(~a); | f(~a, e1, e2) ]
+       [mpz_clear(~a);]
+\end{lstlisting}
+
+
+
 \section{Types}
+
+\subsection{PVS Types}
 A PVS theory can be typechecked using the emacs interface \codeline{M-x typecheck} or with Lisp function \codeline{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
 Here we describe how PVS types are represented in Lisp. The syntax of PVS we allow
@@ -143,7 +257,7 @@ Here we describe how PVS types are represented in Lisp. The syntax of PVS we all
 \end{class}
 
 
-\section{Translating types}
+\subsection{Translating types}
 PVS types:\\
 boolean, number, number\_field, real, 
 rational, integer, $A \rightarrow B$, restricted types
@@ -170,7 +284,7 @@ d_add(*mpz_t res, mpz_t[mutable] a, long b) {
 }
 \end{lstlisting}
 
-Rq : \codeline{d\_add} is given a mutable \codeline{mpz\_t}, meaning that it can modify it and is responsible for freeing it.
+Rq : \codeline{d\_add} is given a mutable \mpzt, meaning that it can modify it and is responsible for freeing it.
 It is also responsible for allocating memory for the result.
 Here it uses the memory to assign res.
 
@@ -214,6 +328,9 @@ and others: short int, float, union, size\_t, ...
 We can only translate a subset of all PVS types.
 What's missing ?
 
+
+
+
 \subsection{Translating PVS syntax}
 
 
@@ -222,11 +339,75 @@ What's missing ?
 
 
 
-\subsection{Difficulties}
-if-expr
+\section{Difficulties and successes}
 
 
-\subsubsection{ Update expressions }
+\subsection{\texttt{if} expressions}
+Represented by \texttt{if-expr}
+
+\subsection{Integer, rationnals}
+In PVS, the \texttt{integer} represent the whole set $\Z$ of all relative numbers (and \texttt{rational} also describe $\Q$).
+In C, we have finite types
+int, long, ...
+
+We need the GMP library which introduces the types \mpzt and \mpqt.
+These types are arrays and should be used just as integer (not as pointers except they still need to be freed).
+
+
+\subsection{Garbage collection }
+
+We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage}.\\
+
+We maintain a hashtable of pointer counters.
+Each pointer in the code is a key in the hastable to which we associate an int counter as value.\\
+
+Pointers only occurs in arrays or struct.\\
+
+Arrays are created in the code.\\
+
+
+\begin{lstlisting}
+T* a = b;
+\end{lstlisting}
+becomes
+\begin{lstlisting}
+T* a = GC( b ); // Should not happen often...
+\end{lstlisting}
+
+\begin{lstlisting}
+t[0] = b;  // with b of type T*
+\end{lstlisting}
+becomes
+\begin{lstlisting}
+GC_free( t[0] );
+t[0] = (T*) GC( b );
+\end{lstlisting}
+
+Examples
+
+\begin{lstlisting}
+int* f() {
+  int* res;
+  res = (int*) GC_alloc( 10 * sizeof(int) );
+  [... init res...]
+  return res; // pointer count = 1
+}
+
+void main() {
+   int* a = f();  // pointer counter of a = 1
+   int** b = (int**) GC_alloc( sizeof( int*) );
+   GC_free( b[0] );  // useless
+   b[0] = (int*) GC( a );  // pointer counter of a = 2
+   printf("f(0) = %s", b[0][0]);
+   GC_free(b); // frees b, pointer count of a = 1
+   GC_free(a); // frees a
+}
+\end{lstlisting}
+
+
+\subsection{Performance}
+
+\subsection{Update expressions}
 Update expressions are represented by PVS as \texttt{update-expr} objects.
 
 $$ E := \texttt{ t with [ e1 := e2 ] } $$
@@ -367,11 +548,16 @@ need multiple passes as the flags disappear
 
 
 
+\subsection{Closures}
+
+Nothing now
 
 
+\section{Conclusion}
 
+\subsection{What's left to be done ?}
 
-\section{Other works at SRI}
+\subsection{My stay at SRI}
 
 Discovering PVS :
 Translating Coq proofs to PVS
