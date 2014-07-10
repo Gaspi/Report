@@ -647,13 +647,29 @@ Then for each of these arguments :
   -> Otherwise, unflag the arg
 
 A variable $V$ of type array is created in these cases:
+\begin{itemize}
+\item \cl{$V$ = $\lambda$x.e(x)} : $V$ has bang type
+\item \cl{update($V$, $T$, key, value)} : $V$ has bang type because this is basically a copy and a destructive update.
+\item \cl{f($V$,...) = ...} : type of $V$ depends on \cl{f}.
+\end{itemize}
+In these case, it has always bang type.\\
+Or it can be set to an other referenced object.
+\begin{itemize}
+\item \cl{$V$ = $T$} $\rightarrow$ $V$ (should have bang type iff $T$ has !type too and never occurs afterwards). Happens in 
+\item \cl{$V$ = $T$[i]} $\rightarrow$ depends on the target type of $T$.
+\item \cl{$V$ = $T$.field} $\rightarrow$ depends on the type of the field.
+\end{itemize}
+At first all updates are non destructive.
 
-- \cl{$V$ = $T$}        // $V$ bang iff $T$ bang and never occurs afterward
-- \cl{$V$ = copy($T$)}  // $V$ bang
-- \cl{$V$ = $/lambda x.$ e($x$)}
+First pass : All array variables (actuals and local variables) found in the code are flagged. Local variables are flagged according to the previous rules and actuals are flagged \textbf{mutable} in destructive version and \textbf{not mutable} in non-destructive versions. In functions returning an array (or record type), the variable result is also flagged.\\
 
-
-
+Second pass :
+Reading the code backwards, for every occurrence $T$ of a variable:
+\begin{itemize}
+\item If it is found in a \cl{$V$ = $T$} instruction, then we give bang type to $V$ and remove bang type from $T$ so that previous occurrences of $T$ won't assume the uniqueness of the reference.
+\item If it is used in a \cl{$V$ = copy($T$)} instruction, then we replace it with a \cl{$V$ = $T$} instruction and do as previous.
+\item  If it is found in an \cl{update($V$, $T$, i, e}, then if $T$ is bang, then turn that into \cl{$V$ = $T$; destr\_update($V$, i, e) }.
+\end{itemize}
 
 
 
