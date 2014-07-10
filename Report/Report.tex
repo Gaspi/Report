@@ -7,6 +7,7 @@
 \usepackage{amssymb}
 \usepackage{amsthm}
 \usepackage{amsfonts}
+\usepackage{xcolor}
 \usepackage[colorlinks]{hyperref}
 \usepackage{graphicx}
 
@@ -16,12 +17,21 @@
 \usepackage{includes/makebnf}
 
 
-\usepackage[space]{grffile} % Celui-là je sais plus à quoi il sert...
+\usepackage[space]{grffile}
 
 % --- Partie code
 \usepackage{listings}
-\lstset{language=C} % Changer eventuellement le nom du langage
-\newcommand{\codeline}[1]{\texttt{#1}}
+\lstset{language=C,
+        showstringspaces=false,
+        basicstyle=\footnotesize\ttfamily,
+        captionpos=b,
+        stepnumber=1,
+        keywordstyle=\bfseries\color{green!40!black},
+        commentstyle=\itshape\color{purple!40!black},
+        identifierstyle=\color{blue},
+        stringstyle=\color{red}}
+
+\newcommand{\cl}[1]{\texttt{#1}}
 
 % --- Parti math. (app.)
 \newtheorem{theorem}{Theorem}
@@ -180,7 +190,7 @@ an \texttt{update-expr} instance, where the \texttt{expression} is
 generated \texttt{assigment} instances.  Note that these are very
 succinct representations, but correspondingly difficult to typecheck or to
 translate to other systems (e.g., decision procedures).  See the
-description of the function \codeline{translate-update-to-if!} for more
+description of the function \cl{translate-update-to-if!} for more
  details.
 \end{class}
 
@@ -198,15 +208,62 @@ assignment \texttt{`a(x, y)`1 := 0}, the \texttt{arguments} are
 \subsection{Translator architecture}
 
 Describe here the Lisp functions and data structures
+
 Skeleton
+
 Expected input
+
 Output objects
+
 Assertions that we (try to) maintain
 
+Main steps :
+\begin{itemize}
+\item Typechecking: The PVS typechecker perform a type analysis on the PVS code to associate a PVS type to each expression. This might generates some proof obligations (TCC).
+\item Lexical and syntactic analysis: The PVS parser transforms PVS code into a Lisp internal representation.
+\item Translation: The translator generates a different representation from PVS expressions and functions declarations.
+Typically, an expression $e$ is translated into a tuple of four elements $(t,n,i,d)$, where $t$ represents a C type used to describe the expression, $n$ is a string representing the expression, $i$ is a list of instructions supposed to be executed prior to using $n$ (initialisation of $n$) and $d$ is a list of instructions to be executed when $n$ isn't needed anymore (destruction of $n$).
+\item Optimizations
+\item Code generation: C code is generated.
+\end{itemize}
 
-\subsection{A few translation rule}
+We first define a function $T$ to translate an expression $e$.
+$$ T(e) = ( \ T^t(e) \ , \ T^n(e) \ , \ T^i(e) \ , \ T^d(e) \ ) $$
+
+\begin{figure}[h!]
+\begin{eqnarray*}
+T(\cl{2}) &= (& \cl{int}, "2", [], []) \\
+T(\cl{4294967296}) &= (& \cl{mpz\_t}, \ ? \ , \\
+&& [ \cl{mpz\_init(?);} \ | \\
+&& \ \cl{mpz\_set\_str(?, "4294967296");} ],\\
+&& [ \cl{mpz\_clear(?);} ]) \\
+T(\cl{lambda(x:below(10)):x}) &= (& \cl{int*}, \ ? \ , \\
+&& [ \cl{? = malloc(10 * sizeof(int));} \ | \\
+&& \ \cl{int i;} | \\
+&& \ \cl{for(i = 0; i < 10; i++) }\\
+&& \ \ \ \cl{?[i] = i;}  ]\\
+&& [ \cl{free(?);} ])
+\end{eqnarray*}
+\caption{Translation examples: number expressions}
+\end{figure}
+
+It may occur that $T^n(e) = ?$. In that case, the symbol $?$ appearing in $T^i(e)$ and $T^d(e)$ needs to be replaced by a proper variable name.\\
+
+We then define two other operators:
+\begin{itemize}
+\item $R$ wich take an expression and a type and may add an extra conversion in the instructions to make sure its result has the expected type. Also the result of this function has a proper name.
+\item $S$ which take an expression, a type and a name. It makes sure that the given variable (type + name) is set to a value representing the expression.
+\end{itemize}
+
+
+
+
+\subsection{A few translation rules}
 
 Translation rules :
+
+
+
 
 \begin{lstlisting}
 number-expr "2"
@@ -229,7 +286,7 @@ application "f(e1, e2)"
 \section{Types}
 
 \subsection{PVS Types}
-A PVS theory can be typechecked using the emacs interface \codeline{M-x typecheck} or with Lisp function \codeline{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
+A PVS theory can be typechecked using the emacs interface \cl{M-x typecheck} or with Lisp function \cl{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
 Here we describe how PVS types are represented in Lisp. The syntax of PVS we allow
 
@@ -266,6 +323,11 @@ enum
 datatype
 
 
+This requires a type analysis to decide on the type of a PVS expression. For example the PVS \cl{int} type can be represented by the \cl{int}, \cl{unsigned long} or \cl{mpz\_t} C types. In that case, we study the range of the expression to decide which types are allowed to represent it. Then we take the context in which the expression appears to decide. For instance in
+\begin{lstlisting}
+incr(x:below(10)):int = x+1
+\end{lstlisting}
+the \cl{x} expression, result of the function \cl{incr} can always be represented by an \cl{int} or \cl{unsigned long} in C but we choose here to represent it using a \cl{mpz\_t}.
 
 Auxiliary type system :
 C-type with a flag : mutable (meaning that the expression it describes only has one pointer pointing to it.
@@ -284,7 +346,7 @@ d_add(*mpz_t res, mpz_t[mutable] a, long b) {
 }
 \end{lstlisting}
 
-Rq : \codeline{d\_add} is given a mutable \mpzt, meaning that it can modify it and is responsible for freeing it.
+Rq : \cl{d\_add} is given a mutable \mpzt, meaning that it can modify it and is responsible for freeing it.
 It is also responsible for allocating memory for the result.
 Here it uses the memory to assign res.
 
@@ -297,9 +359,9 @@ Use an auxiliary language :
 \end{lstlisting}
 
 Conversions and copies create mutables types (at a cost) :
-\codeline{a[mutable]\_from\_b}
+\cl{a[mutable]\_from\_b}
 
-
+\cite{fillcomp}
 
 
 
@@ -308,13 +370,16 @@ Conversions and copies create mutables types (at a cost) :
 
 
 C types:\\
+\cite{huss2004c}
+\begin{lstlisting}[caption=C types]
+// integer and floating point types
 [unsigned] char, int, long, double
-boolean
-arrays
-strings
-enum
-struct
-and others: short int, float, union, size\_t, ...
+type*  //arrays
+char*  // strings
+struct types  // structures with fields
+enum types
+short int, float, union, size_t // etc...
+\end{lstlisting}
 
 
 
@@ -414,12 +479,13 @@ $$ E := \texttt{ t with [ e1 := e2 ] } $$
 
 
 Problem :
-\codeline{t} is an expression typed as a function. Therefore it might be represented in C as an array (if domain type is \codeline{below($n$)}.
-We want to know if we can update \codeline{t} in place to obtain a C object representing \codeline{E} or if we have to make a copy of \codeline{t}.
+\cl{t} is an expression typed as a function. Therefore it might be represented in C as an array (if domain type is \cl{below($n$)}.
+We want to know if we can update \cl{t} in place to obtain a C object representing \cl{E} or if we have to make a copy of \cl{t}.
 
-Three solutions :
 
-- Pointer counting :
+We consider three solutions to this problem.
+
+\subsubsection{Pointer counting}
 
 We keep track of the number of pointer pointing to an array or a struct.
 
@@ -484,35 +550,42 @@ void main() {
 
 
 
-- Using a different data structure
+\subsubsection{Using a different data structure}
 
 PVS uses arrays in a very particular way, we might then represent them with an other structure than just only a C array.
 For example :
 
 \begin{lstlisting}
 struct r_list_int {
-   int k;
-   int v;
+   int key;
+   int value;
    r_list_int tl;
 };
-
 struct array_int {
    int *data;
    r_list_int replacement_list;
 };
 \end{lstlisting}
 
-Each structure represent the array \codeline{data} with the modifications contained in the linked list \codeline{r\_list\_int}
+Each structure represent the array \cl{data} with the modifications contained in the linked list \cl{r\_list\_int}
 
 Problems : Just as the previous solution :
 - add some extra code
-- add some extra computation (runtime tests)
-- require to create as many structures and associated functions as there are range type fo the manipulated arrays
+- add some extra computation (runtime tests, reading the replacement list)
+- require to create as many structures and associated functions as there are range types fo the manipulated arrays
+- Very dependent on the GC
 
 
-- Third solution :
+\subsubsection{Flow analysis on the PVS code}
 
-Trying to avoid copying arrays by analyzing the code.
+\cite{pavol}
+
+
+
+\subsubsection{Analysis of the C code}
+
+Trying to avoid copying arrays by analyzing the C code generated.
+
 2 different functions (destructive and non destructive)
 
 
@@ -532,30 +605,47 @@ Then for each of these arguments :
   -> Otherwise, unflag the arg
 
 What is a destructive occurence :
-$$ E :=  \codeline{f(  t with [ e1 := e2 ] , t(0) )} $$
+$$ E :=  \cl{f(  t with [ e1 := e2 ] , t(0) )} $$
 order of eval :
 e1 and e2  (t can occur non destr)
 t          ( expression of an update : destr)
 t(0)       ( occurence of t (even non destr))
 
-f( g(t), t)
-if g has type [Array! -> ?] then t can't be destructive
-if g has type [Array  -> ?] then t can be destructive
+\cl{f(x:Arr):int = g( h(t), t)}  is destructively translated to \\
+\begin{lstlisting}[numbers=left,caption=Example]
+int f_d(int* t) {   // t has type ! since this is destructive f
+  int* arg1 = h(t); // h can't be called destructively because
+                    // even though t is !, it appears later (line 4)
+  int* arg2 = t;    // t is ! and never appears later => arg2 is !
+  return g( arg1, arg2); // arg2 is ! but g can only be called
+}                        // destructively if arg1 is
+\end{lstlisting}
 
-need multiple passes as the flags disappear
+if g has type \cl{[Array! -> ?]} then t can't be destructive\\
+
+if g has type \cl{[Array -> ?]} then t can be destructive
+
+First algorithm:
 
 
+Need multiple passes as the flags disappear
 
-
-
-\subsection{Closures}
-
-Nothing now
 
 
 \section{Conclusion}
 
 \subsection{What's left to be done ?}
+
+Use a C structure to represent a closure
+\begin{lstlisting}
+struct r_list_int {
+   int (*body)(void* env, void* args);
+   void* env;
+   void* args;
+};
+\end{lstlisting}
+
+
 
 \subsection{My stay at SRI}
 
@@ -568,7 +658,7 @@ Contest week-end 14-15 June \\
 Summer School \\
 Parsing Lisp code -> generate HTML architecture file\\
 Correcting translator PVS to SMT-LIB
-
+\cite{pavol}
 
 
 
