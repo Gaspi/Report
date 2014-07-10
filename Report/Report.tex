@@ -132,11 +132,13 @@ The objective is, of course, to be able to translate the maximum of (if not all)
 
 We describe here the syntax of PVS and the objects system used to represent them in Lisp. Some slots of the classes are voluntarily omitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
 
+\begin{figure}
 \input{includes/bnf-expr-aux}
+\caption{Syntax of the PVS subset of the translator}
+\end{figure}
 
 
-
-
+\begin{figure}
 \begin{class}{expr}{abstract}{\classhln{syntax}}
 {\slotidx{type} & the type of the expression}
 \end{class}
@@ -187,22 +189,19 @@ When an application has an operator that resolves to the \texttt{if\_def} it is 
 An update expression of the form \texttt{e WITH [x := 1, y := 2]}, maps to
 an \texttt{update-expr} instance, where the \texttt{expression} is
 \texttt{e}, and the \texttt{assignments} slot is set to the list of
-generated \texttt{assigment} instances.  Note that these are very
-succinct representations, but correspondingly difficult to typecheck or to
-translate to other systems (e.g., decision procedures).  See the
-description of the function \cl{translate-update-to-if!} for more
- details.
+generated \texttt{assigment} instances.
 \end{class}
 
 \begin{class}{assignment}{}{\classhln{syntax}}
 {\slotidx{arguments} & the list of arguments \\
  \slotidx{expression} & the value expression}
-Assignments occur in both record-exprs and update-exprs.  The
-\texttt{arguments} form is a list of lists.  For example, given the
-assignment \texttt{`a(x, y)`1 := 0}, the \texttt{arguments} are
+Assignments occur in both record-exprs and update-exprs.\\
+The \texttt{arguments} form is a list of lists.  For example, given the assignment \texttt{`a(x, y)`1 := 0}, the \texttt{arguments} are
 \texttt{((a) (x y) (1))} and the \texttt{expression} is \texttt{0}.
 \end{class}
 
+\caption{CLOS representation of PVS expressions}
+\end{figure}
 
 
 \subsection{Translator architecture}
@@ -578,7 +577,8 @@ Problems : Just as the previous solution :
 
 \subsubsection{Flow analysis on the PVS code}
 
-\cite{pavol}
+An other optimization would be to perform a analysis on the PVS variables to make sure an udate
+Pavol \cite{pavol} suggests three analysis
 
 
 
@@ -649,6 +649,24 @@ struct r_list_int {
 
 \subsection{My stay at SRI}
 
+Besides the conception and implementation of the PVS to C compiler, my stay at SRI International was rich in ??? events.
+
+The first days of my stay were the occasion to discover PVS anc Coq as I started working on a translator Coq to PVS. With Robin, we also wrote as an exercise a basic linear algebra library.
+
+I discovered Lisp the hard way while learning how the back end of PVS worked. I've wrote a Lisp parser to help me see clear in the huge code (classes definitions, inheritances and organization, function dependances, ...)
+
+I'v had the chance to attend to many interesting seminars. The SRI also organized a Summer School to which we were allowed to attend and which was very interesting.
+
+Shankar never hesitated to include us in many project
+
+I've been included in the HACMS project which was very interesting.
+With other:
+Correcting translator PVS to SMT-LIB
+
+
+
+
+\subsubsection*{Draft}
 Discovering PVS :
 Translating Coq proofs to PVS
 PVS library for basic linear algebra
