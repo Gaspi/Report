@@ -56,6 +56,10 @@
 \newcommand{\mpzt}{\texttt{mpz\_t}}
 \newcommand{\mpqt}{\texttt{mpq\_t}}
 
+\newcommand{\mut}{\textbf{mutable}}
+\newcommand{\nmut}{\textbf{non-mutable}}
+
+
 \title{
 \vspace{-3cm}
 \normalsize
@@ -675,6 +679,35 @@ Reading the code backwards, for every occurrence $T$ of a variable flagged \text
 
 At the end, when we have reached the transitive closure of this definition, if we reach the beginning of the function and some arguments are still bang, this means their bangness is never used, put the flag on that argument to \cl{non mutable} and remove the instructions freeing that variable (reminder : mutable arguments of a functions are freed inside the function or are used in a mutable way and appear somewhere in the result (trapped in closures) or are freed in other function calls.
 
+\subsubsection{Algorithm}
+
+Initialization:\\
+We initialize a set $M$ of mutable variables to all array arguments of a function $f$.
+We also initialize a set $F$ of variables to free to $M$ since $f$ has the resposnability to free all variables flagged as mutable arguments.\\
+
+We read the code backwards.\\
+$T_i$ refer to variables that are in the set $M$.\\
+$S_i$ refer to variables that are not in the set $M$.
+
+\begin{tabular}{|p{60mm}|p{90mm}|}
+\hline
+\cl{$S$ = $T$} & $M \leftarrow M \cup \{ S \} - \{T\}$ \newline $F \leftarrow F \cup \{ S \} - \{T\}$  \\ \hline
+\cl{$S$ = update($S_2$, key, value}) & $M \leftarrow M \cup \{ S \}$ \newline $F \leftarrow F \cup \{ S \}$ \\ \hline
+\cl{$S$ = update($T$, key, value}) & $M \leftarrow M \cup \{ S \}  - \{T\}$ \newline $F \leftarrow F \cup \{ S \}$ \\ \hline
+
+\cl{$S$ = g($T_i$, $S_i$}) & If the arguments of \cl{g} don't allow \cl{g} to be called destructively: \newline $M \leftarrow M - \{T_i \}$ \newline $M \leftarrow M \cup \{ S \}$ if return type of \cl{g} is \mut \newline $F \leftarrow F \cup \{ S\}$ \\ \hline
+
+\cl{$S$ = g($T_i$, $S_i$}) & Otherwise: \newline \cl{$\rightarrow S$ = g\_d($T_i$, $S_i$} \newline $M \leftarrow M \cup \{ S \}  - \{T\}$ \newline $F \leftarrow F \cup \{ S \}$ \\ \hline
+
+\cl{$S$ = $S_2$[i]} & $M \leftarrow M \cup \{ S \}  - \{T\}$ \newline $F \leftarrow F \cup \{ S \}$ \\ \hline
+
+
+\end{tabular}
+
+
+
+
+All arguments of the function are flagged \mut 
 
 
 
@@ -704,6 +737,39 @@ First algorithm:
 
 
 Need multiple passes as the flags disappear
+
+
+
+
+
+\begin{tabular}{|p{50mm}|p{50mm}|p{50mm}|}
+\hline
+\cl{update(A, key, value)} & \cl{A[key] = value;} & \cl{A} must be \mut \\ \hline
+\cl{set(A, $expr$)} & \cl{A = [ $expr$ ];} \\ \hline
+\cl{copy(A, B)} & if ( GC_count( result[L557] ) == 1 )
+    E558 = result[L557];
+  else {
+    E558 = GC_malloc(1000, sizeof(int));
+    int i561;
+    for(i561 = 0; i561 < 1000; i561++) {
+      E558[i561] = result[L557][i561];
+    }
+  }
+   & \\ \hline
+\cl{T[e] = e} & & \\ \hline
+\end{tabular}
+
+
+\subsubsection{Combination of solutions}
+
+We use the C code analysis to write some updates as destructive. However a few updates remain non destructive. For example:\\
+
+If a function is called but requires its two argument to be \mut  and only the first is \mut. Then the non-destructive version is called and the first argument gets copied even though it was \mut.\\
+
+If we perform an update on \cl{$T$[i]}, our analysis doesn't tell if \cl{$T$[i]} is \mut or \nmut.\\
+
+To prevent that, we also perform a GC check. An update is actually a test wether an object is \mut or not and the appropriate update.
+
 
 
 
