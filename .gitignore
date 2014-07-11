@@ -6,6 +6,10 @@
 *.fls
 *.out
 *.toc
+*.bib
+*.bib~
+*.tex~
+## bibtex files have to be added by hand  (might not be a good idea...)
 
 ## Intermediate documents:
 *.dvi
