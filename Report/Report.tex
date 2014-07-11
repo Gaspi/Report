@@ -200,7 +200,7 @@ The \texttt{arguments} form is a list of lists.  For example, given the assignme
 \texttt{((a) (x y) (1))} and the \texttt{expression} is \texttt{0}.
 \end{class}
 
-\caption{CLOS representation of PVS expressions}
+\caption{(Partial) CLOS representation of PVS expressions}
 \end{figure}
 
 
@@ -287,10 +287,15 @@ application "f(e1, e2)"
 \subsection{PVS Types}
 A PVS theory can be typechecked using the emacs interface \cl{M-x typecheck} or with Lisp function \cl{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
-Here we describe how PVS types are represented in Lisp. The syntax of PVS we allow
+Here we describe how PVS types are represented in Lisp.
 
+\begin{figure}
 \input{includes/bnf-type-expr}
+\caption{Fragment of the PVS type system}
+\end{figure}
 
+
+\begin{figure}
 \begin{class}{type-expr}{abstract}{\classhln{syntax}}
 {}
 \end{class}
@@ -311,7 +316,8 @@ Here we describe how PVS types are represented in Lisp. The syntax of PVS we all
 \begin{class}{recordtype}{}{\classhln{type-expr}}
 {\slotidx{fields} & }
 \end{class}
-
+\caption{(Partial) CLOS representation of PVS types}
+\end{figure}
 
 \subsection{Translating types}
 PVS types:\\
@@ -380,6 +386,42 @@ enum types
 short int, float, union, size_t // etc...
 \end{lstlisting}
 
+
+Translation rules :
+
+\begin{figure}[h!]
+\begin{tabular}{|l|l|}
+\hline
+\cl{subrange(a, b)} &
+\begin{lstlisting}
+int            // if small enough
+unsigned long  // if too big or needed for function call
+mpz_t          // else
+\end{lstlisting} \\ \hline
+\cl{int} &
+\begin{lstlisting}
+mpz_t
+\end{lstlisting} \\ \hline
+\cl{rat} &
+\begin{lstlisting}
+mpq_t
+\end{lstlisting} \\ \hline
+\cl{[below(a) -> Type]} &
+\begin{lstlisting}
+(Ctype)*
+\end{lstlisting} \\ \hline
+\cl{T : TYPE = [\# $x_i$ : $t_i$ \#]}  &
+\begin{lstlisting}
+struct CT {
+   ...
+   Ct_i x_i;
+   ...
+}; // These types must be declared
+\end{lstlisting} \\ \hline
+\cl{[Range -> Domain]} & C closure parameterized by the \cl{Domain} return type.\\ \hline
+\end{tabular}
+\caption{Translation rules for PVS types}
+\end{figure}
 
 
 
@@ -597,12 +639,45 @@ In destructive versions of all functions :
 Flag all array arguments to "mutable".
 Then for each of these arguments :
   - If it never occurs destructively, then remove flag
-          (function just observe the arg)
+          (function just read the arg)
   - If it occurs destructively, it can never occur at all AFTER.
   -> Need to define the order of evaluation of expression
       (easy rules on simple expressions)
   -> Need to be able to detect occurences of a name-expr
   -> Otherwise, unflag the arg
+
+A variable $V$ of type array is created in these cases:
+\begin{itemize}
+\item \cl{$V$ = $\lambda$x.e(x)} : $V$ has bang type
+\item \cl{update($V$, $T$, key, value)} : $V$ has bang type because this is basically a copy and a destructive update.
+\item \cl{f($V$,...) = ...} : type of $V$ depends on \cl{f}.
+\end{itemize}
+In these case, it has always bang type.\\
+Or it can be set to an other referenced object.
+\begin{itemize}
+\item \cl{$V$ = $T$} $\rightarrow$ $V$ (should have bang type iff $T$ has !type too and never occurs afterwards). Happens in 
+\item \cl{$V$ = $T$[i]} $\rightarrow$ depends on the target type of $T$.
+\item \cl{$V$ = $T$.field} $\rightarrow$ depends on the type of the field.
+\end{itemize}
+At first all updates are non destructive.
+
+First pass : All array variables (actuals and local variables) found in the code are flagged. Local variables are flagged according to the previous rules and actuals are flagged \textbf{mutable} in destructive version and \textbf{not mutable} in non-destructive versions. In functions returning an array (or record type), the variable result is also flagged.\\
+
+Other passes :
+Reading the code backwards, for every occurrence $T$ of a variable flagged \textbf{mutable}:
+\begin{itemize}
+\item If it is found in a \cl{$V$ = $T$} instruction, then we give the bang type to $V$ and remove bang type from $T$ so that previous occurrences of $T$ won't assume the uniqueness of the reference. This adds a new variable to the set of bang variables, hence the need to make several passes.
+\item If it is used in a \cl{$V$ = copy($T$)} instruction, then we replace it with a \cl{$V$ = $T$} instruction and do as previous.
+\item If it is found in an \cl{update($V$, $T$, i, e}, then turn that into \cl{$V$ = $T$; destr\_update($V$, i, e) }.
+\item If it is a function call 
+\item If we reach the declaration of a variable that is marked \textbf{mutable}, this means this variable is never read. In that case, we actually don't need it (unflag it I guess...).
+\end{itemize}
+
+At the end, when we have reached the transitive closure of this definition, if we reach the beginning of the function and some arguments are still bang, this means their bangness is never used, put the flag on that argument to \cl{non mutable} and remove the instructions freeing that variable (reminder : mutable arguments of a functions are freed inside the function or are used in a mutable way and appear somewhere in the result (trapped in closures) or are freed in other function calls.
+
+
+
+
 
 What is a destructive occurence :
 $$ E :=  \cl{f(  t with [ e1 := e2 ] , t(0) )} $$
