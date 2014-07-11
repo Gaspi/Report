@@ -663,13 +663,19 @@ At first all updates are non destructive.
 
 First pass : All array variables (actuals and local variables) found in the code are flagged. Local variables are flagged according to the previous rules and actuals are flagged \textbf{mutable} in destructive version and \textbf{not mutable} in non-destructive versions. In functions returning an array (or record type), the variable result is also flagged.\\
 
-Second pass :
-Reading the code backwards, for every occurrence $T$ of a variable:
+Other passes :
+Reading the code backwards, for every occurrence $T$ of a variable flagged \textbf{mutable}:
 \begin{itemize}
-\item If it is found in a \cl{$V$ = $T$} instruction, then we give bang type to $V$ and remove bang type from $T$ so that previous occurrences of $T$ won't assume the uniqueness of the reference.
+\item If it is found in a \cl{$V$ = $T$} instruction, then we give the bang type to $V$ and remove bang type from $T$ so that previous occurrences of $T$ won't assume the uniqueness of the reference. This adds a new variable to the set of bang variables, hence the need to make several passes.
 \item If it is used in a \cl{$V$ = copy($T$)} instruction, then we replace it with a \cl{$V$ = $T$} instruction and do as previous.
-\item  If it is found in an \cl{update($V$, $T$, i, e}, then if $T$ is bang, then turn that into \cl{$V$ = $T$; destr\_update($V$, i, e) }.
+\item If it is found in an \cl{update($V$, $T$, i, e}, then turn that into \cl{$V$ = $T$; destr\_update($V$, i, e) }.
+\item If it is a function call 
+\item If we reach the declaration of a variable that is marked \textbf{mutable}, this means this variable is never read. In that case, we actually don't need it (unflag it I guess...).
 \end{itemize}
+
+At the end, when we have reached the transitive closure of this definition, if we reach the beginning of the function and some arguments are still bang, this means their bangness is never used, put the flag on that argument to \cl{non mutable} and remove the instructions freeing that variable (reminder : mutable arguments of a functions are freed inside the function or are used in a mutable way and appear somewhere in the result (trapped in closures) or are freed in other function calls.
+
+
 
 
 
