@@ -746,7 +746,8 @@ Need multiple passes as the flags disappear
 \hline
 \cl{update(A, key, value)} & \cl{A[key] = value;} & \cl{A} must be \mut \\ \hline
 \cl{set(A, $expr$)} & \cl{A = [ $expr$ ];} \\ \hline
-\cl{copy(A, B)} & if ( GC_count( result[L557] ) == 1 )
+\cl{copy(A, B)} &
+$if ( GC_count( result[L557] ) == 1 )
     E558 = result[L557];
   else {
     E558 = GC_malloc(1000, sizeof(int));
@@ -755,7 +756,7 @@ Need multiple passes as the flags disappear
       E558[i561] = result[L557][i561];
     }
   }
-   & \\ \hline
+ $  & \\ \hline
 \cl{T[e] = e} & & \\ \hline
 \end{tabular}
 
