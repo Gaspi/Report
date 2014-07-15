@@ -741,24 +741,44 @@ Need multiple passes as the flags disappear
 
 
 
-
-\begin{tabular}{|p{50mm}|p{50mm}|p{50mm}|}
+\begin{figure}
+\begin{tabular}{|p{50mm}|p{62mm}|p{45mm}|}
 \hline
 \cl{update(A, key, value)} & \cl{A[key] = value;} & \cl{A} must be \mut \\ \hline
-\cl{set(A, $expr$)} & \cl{A = [ $expr$ ];} \\ \hline
-\cl{copy(A, B)} &
-$if ( GC_count( result[L557] ) == 1 )
-    E558 = result[L557];
-  else {
-    E558 = GC_malloc(1000, sizeof(int));
-    int i561;
-    for(i561 = 0; i561 < 1000; i561++) {
-      E558[i561] = result[L557][i561];
-    }
-  }
- $  & \\ \hline
-\cl{T[e] = e} & & \\ \hline
+\cl{set(A, $expr$)} & \cl{A = $expr$;} \\ \hline
+\cl{declare(A, $expr(i)$)} & \begin{lstlisting}
+A = malloc(l * sizeof(T) );
+int i;
+for(i = 0; i < l; i++)
+   A[i] = i + 1;
+\end{lstlisting} & \\ \hline
+\cl{copy(A, B)} & \begin{lstlisting}
+A = malloc(l * sizeof(T) );
+int i;
+for(i = 0; i < l; i++)
+   A[i] = B[i];
+\end{lstlisting} & \\ \hline
+\cl{init(A)} & \cl{int* A;} & \\ \hline
+\cl{free(A)} & \cl{free(A);} & \\ \hline
+\cl{base(str, (A, B, ...))} & \cl{int aux = A[0] + B[1];} & \cl{A} and \cl{B} are only read. \\ \hline
+\cl{return} & \cl{return result;} & \\ \hline
 \end{tabular}
+\caption{C instructions}
+\end{figure}
+
+
+
+\begin{figure}
+\begin{tabular}{|p{50mm}|p{50mm}|p{50mm}|}
+\hline
+\cl{value($cste$)} & \cl{42} & \\ \hline
+\cl{variable($type$, $name$)} & \cl{name} & \\ \hline
+\cl{call(f, $exprs$)} & \cl{f( $expr_1$, $...$, $expr_n$ )} & \\ \hline
+\end{tabular}
+\caption{C expressions}
+\end{figure}
+
+
 
 
 \subsubsection{Combination of solutions}
