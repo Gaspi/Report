@@ -449,6 +449,16 @@ What's missing ?
 
 
 
+\subsection{Using a representation of the C language}
+
+\begin{figure}
+\input{includes/C-expr}
+\caption{Syntax of the representation of the atrget language (subset of the C language)}
+\end{figure}
+
+
+
+
 \section{Difficulties and successes}
 
 
@@ -463,8 +473,25 @@ int, long, ...
 We need the GMP library which introduces the types \mpzt and \mpqt.
 These types are arrays and should be used just as integer (not as pointers except they still need to be freed).
 
+\subsection{Update expressions}
+Update expressions are represented by PVS as \texttt{update-expr} objects.
 
-\subsection{Garbage collection }
+$$ E := \texttt{ t with [ e1 := e2 ] } $$
+
+
+Problem :
+\cl{t} is an expression typed as a function. Therefore it might be represented in C as an array (if domain type is \cl{below($n$)}.
+We want to know if we can update \cl{t} in place to obtain a C object representing \cl{E} or if we have to make a copy of \cl{t}.
+
+
+We consider three solutions to this problem.
+
+\subsubsection{Pointer counting}
+
+A first solution would be to keep track of the number of pointers pointing to an array or a struct. The idea is that if an array is referenced in several portions of the code (nested reference in other data structure, local variable in calling function, ...) then all update must be done non destructively to avoid inconsistency.
+
+
+
 
 We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage}.\\
 
@@ -475,23 +502,40 @@ Pointers only occurs in arrays or struct.\\
 
 Arrays are created in the code.\\
 
-
+\begin{tabular}{|p{5cm}|p{11cm}|}
+\hline
+\begin{lstlisting}
+T* a = malloc(
+     10 * sizeof(int));
+\end{lstlisting} & \begin{lstlisting}
+T* a = (T*) GC_malloc(10 * sizeof(int));
+\end{lstlisting}
+All memory allocation are handled by the GC to make sure every new reference on the heap is in the reference table and has a pointer counter.
+\\ \hline
+\begin{lstlisting}
+free(a);
+\end{lstlisting} & \begin{lstlisting}
+GC_free(a);
+\end{lstlisting}
+This will decrement the reference counter on \cl{a} and might free it if this counter is now 0. \\ \hline
 \begin{lstlisting}
 T* a = b;
+\end{lstlisting} & \begin{lstlisting}
+T* a = (T*) GC( b );
 \end{lstlisting}
-becomes
+The reference count on \cl{b} is incremented to represent that the local variable \cl{a} now also points to the structure \cl{b} points to.\\ \hline
 \begin{lstlisting}
-T* a = GC( b ); // Should not happen often...
-\end{lstlisting}
-
-\begin{lstlisting}
-t[0] = b;  // with b of type T*
-\end{lstlisting}
-becomes
-\begin{lstlisting}
+t[0] = b;
+\end{lstlisting} & \begin{lstlisting}
 GC_free( t[0] );
 t[0] = (T*) GC( b );
 \end{lstlisting}
+This time, we also make sure the reference counter of \cl{t[0]} is decremented and \cl{t[0]} has a chance to be freed if nothing else points to it.\\ \hline
+\end{tabular}
+
+
+
+
 
 Examples
 
@@ -514,26 +558,6 @@ void main() {
 }
 \end{lstlisting}
 
-
-\subsection{Performance}
-
-\subsection{Update expressions}
-Update expressions are represented by PVS as \texttt{update-expr} objects.
-
-$$ E := \texttt{ t with [ e1 := e2 ] } $$
-
-
-Problem :
-\cl{t} is an expression typed as a function. Therefore it might be represented in C as an array (if domain type is \cl{below($n$)}.
-We want to know if we can update \cl{t} in place to obtain a C object representing \cl{E} or if we have to make a copy of \cl{t}.
-
-
-We consider three solutions to this problem.
-
-\subsubsection{Pointer counting}
-
-We keep track of the number of pointer pointing to an array or a struct.
-
 This requires to build our own C struct (heavy)
 \begin{lstlisting}
 struct array_int {
@@ -542,56 +566,74 @@ struct array_int {
 };
 \end{lstlisting}
 
-When we update the struct, if the pointer is 0, we update in place.\\
+When \cl{A} points to an array (or \cl{struct}) we want to update destructively, we first check if the pointer counter on \cl{A} is 1. If so, we can update in place because only \cl{A} points to the array.\\
 
-Besides every update require now to read the structure and make a test (small compared to a copy but no so small compared to a single in place update)\\
+However, we need to be carefull.
+$$ \cl{g(A:Array) : int = f(A, A WITH [(0) := 3] )}$$
+should not be translated to
+\begin{lstlisting}
+g(int* A) {
+  A[0] = 3;
+  return f(A, A);
+}
+\end{lstlisting}
+for two reasons:
+\begin{itemize}
+\item The variable \cl{A} is updated destructively but it is later used as a reference to the previous value of the array.
+\item \cl{f} is given twice a pointer to the same data structure. Its reference counter should be incremented.
+\end{itemize}
+
+
+Instead we could flatten the expression
+\begin{lstlisting}
+g(int* A) {
+  int* arg1 = GC(A);           // A and arg1 now both point to the array
+  int* arg2 = update(A, 0, 3); // cannot be done destructively
+  int* result = f(arg1, arg2);
+  GC_free(A); // A function is responsible for freeing its arguments
+              // (this is why we don't free arg1 and arg2)
+  return result;
+}
+\end{lstlisting}
+But again, we are lucky here that \cl{A} is the first argument of \cl{f}. If the updated \cl{A} were the first arguments, the update would have been done destructively.
+This is why the GC alone is not enoug. We need an analysis of the C code to determine whether a variable is goingto be used later in the code or not. cf \hyperref[Canalysis]{\ref*{Canalysis} Analysis of the C code}.
+
+
+\subsubsection{Pros and cons}
+
+
+Every update require now tests and calls to hashtable functions (small compared to the copy it allows to avoid but no so small compared to a single in place update that could be decided by a code analysis)\\
 
 Besides, the creation / destruction gets more complicated\\
 
 Passing argument to function :
 \begin{lstlisting}
-array_int f(array_int arg) {
-   arg.pointer_count++;  \\ Since now f also have a pointer to the struct
-   if (arg.pointer_count == 1) {
-      arg.data[0] = 0;
+int* f(int* arg) {
+   if ( GC_count(arg) == 1) {
+      arg[0] = 3;
       return arg;
    } else {
-      array_int res;
-      res.data = malloc( 10 * sizeof(int*) );
-      copy(res, arg);  // Very long...
-      res.pointer_count --; // This function is about to lose its pointer to res
+      int* res;
+      res = GC_malloc(10 * sizeof(int));
+      int i;
+      for(i = 0; i < 10; i++)
+         res[i] = GC( arg[i] );
+      GC_free(arg);
+      res[0] = 3;
       return res;
    }
-}
-
-void main() {
-   array_int t;
-   init(t);  // somehow...
-   
-   t.pointer_counter --;  // We assure we won't use the pointer "t" to the array anymore
-   array_int r = f(t);
-   t = null; // This way we garantee the variable "t" won't be used later in the code
-   
-   [...]   
 }
 \end{lstlisting}
 
 This add quite some code compared to the simple :
 
 \begin{lstlisting}
-array_int f(array_int arg) {
+int* f(int* arg) {
    arg[0] = 0;
    return arg;
 }
-
-void main() {
-   array_int t;
-   init(t);  // somehow...
-   array_int r = f(t);
-   
-   [...]   
-}
 \end{lstlisting}
+
 
 
 
@@ -601,14 +643,14 @@ PVS uses arrays in a very particular way, we might then represent them with an o
 For example :
 
 \begin{lstlisting}
-struct r_list_int {
+struct r_list {
    int key;
    int value;
-   r_list_int tl;
+   r_list tl;
 };
 struct array_int {
    int *data;
-   r_list_int replacement_list;
+   r_list replacement_list;
 };
 \end{lstlisting}
 
@@ -624,15 +666,48 @@ Problems : Just as the previous solution :
 \subsubsection{Flow analysis on the PVS code}
 
 An other optimization would be to perform a analysis on the PVS variables to make sure an udate
-Pavol \cite{pavol} suggests three analysis
+Pavol \cite{pavol} suggests three analysis...
 
 
 
 \subsubsection{Analysis of the C code}
+\label{Canalysis}
+
+
 
 Trying to avoid copying arrays by analyzing the C code generated.
 
-2 different functions (destructive and non destructive)
+Each PVS function is translated into two different C functions: a safe non destructive version which and a destructive version.
+
+The destructive version of a function may have some requirements on the counter of tits arguments. Its arguments may be flagged as \mut, meaning that every call to this version of the function must make sure that the arguments passed can be safely destructively updated.
+
+Example (stripped from GC instructions)
+
+\begin{lstlisting}
+f(int* A, int* B) {
+   if (A[0] == 0) {
+      return B;
+   } else {
+      int* arg1 = copy(B);
+      arg1[0] = arg1[0] - 1;
+      f(arg1, A);
+   }
+}
+
+f_d(int* A, int* B) {  // A and B are flagged mutable
+   if (A[0] == 0) {
+      return B;
+   } else {
+      int* arg1 = B;    // no need to copy since B is mutable
+                        // and never occurs afterwards
+      arg1[0] = arg1[0] - 1;
+      f_d(arg1, A);
+   }
+}
+
+\end{lstlisting}
+
+
 
 
 Algorithm :
@@ -817,7 +892,8 @@ The first days of my stay were the occasion to discover PVS anc Coq as I started
 
 I discovered Lisp the hard way while learning how the back end of PVS worked. I've wrote a Lisp parser to help me see clear in the huge code (classes definitions, inheritances and organization, function dependances, ...)
 
-I'v had the chance to attend to many interesting seminars. The SRI also organized a Summer School to which we were allowed to attend and which was very interesting.
+I also have had the chance to attend to the many interesting seminars SRI hosted every week.
+The SRI also organized a Summer School to which we were allowed to attend and which was very interesting.
 
 Shankar never hesitated to include us in many project
 
