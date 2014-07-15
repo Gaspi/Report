@@ -17,7 +17,7 @@ Expr \lit{`} \brc{ \hlink{Id} \choice \hlink{Number} } \\[-0.1in] & \choice &
 \hlink{IfExpr} \\[-0.1in] & \choice &
 \lit{LET} \ites{\hlink{LetBinding}}{,} \lit{IN} Expr  \\[-0.1in] & \choice &
 Expr \lit{WHERE} \ites{\hlink{LetBinding}}{,}  \\[-0.1in] & \choice &
-Expr \lit{WITH} \lit{[} \ites{\hlink{Assignment}}{,} \lit{]} \\[-0.1in] & \choice &}
+Expr \lit{WITH} \lit{[} \ites{\hlink{Assignment}}{,} \lit{]}}
 
 \production{Number}{\ite{\hlink{Digit}}}
 \production{Id}{\hlink{Letter} \ite{\hlink{IdChar}}}
@@ -33,8 +33,7 @@ Expr \lit{WITH} \lit{[} \ites{\hlink{Assignment}}{,} \lit{]} \\[-0.1in] & \choic
 & & \rep{\brc{\lit{ELSIF} \hlink{Expr} \lit{THEN} \hlink{Expr}}} \lit{ELSE} \hlink{Expr} \lit{ENDIF}}
 
 \production{Name}{
-\lit{true}  \choice \lit{false} \choice \lit{number\_field\_pred} \choice \lit{real\_pred} \\[-0.1in]
-& \choice & \lit{integer\_pred} \choice \lit{integer?} \choice \lit{rational\_pred} \\[-0.1in]
+\lit{true}  \choice \lit{false} \choice \lit{integer?} \\[-0.1in]
 & \choice & \lit{floor} \choice \lit{ceiling} \choice \lit{rem} \choice \lit{ndiv} \choice \lit{even?} \choice \lit{odd?} \\[-0.1in]
 & \choice & \lit{cons} \choice \lit{car} \choice \lit{cdr} \choice \lit{cons?} \choice \lit{null} \choice \lit{null?} \\[-0.1in]
 & \choice & \lit{restrict} \choice \lit{length} \choice \lit{member} \choice \lit{nth} \choice \lit{append} \choice \lit{reverse}}
