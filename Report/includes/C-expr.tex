@@ -1,0 +1,44 @@
+
+\begin{bnf}
+
+\production{Expr}{
+\hlink{Number} \\[-0.1in] & \choice &
+\hlink{Variable} \\[-0.1in] & \choice &
+\hlink{Function} \lit{(} \opt{ \hlink{Exprs} } \lit{)} \\[-0.1in] & \choice &
+\hlink{Variable} \lit{.} \hlink{Id} \\[-0.1in] & \choice &
+\hlink{Variable} \lit{[} \hlink{Expr} \lit{]} }
+
+\production{Exprs}{\hlink{Expr} \opt{ \lit{,} \hlink{Exprs}}}
+
+\production{Instruction}{
+\lit{init( } \hlink{Variable} \lit{ );} \\[-0.1in] & \choice &
+\lit{free( } \hlink{Variable} \lit{ );} \\[-0.1in] & \choice &
+\lit{if (} \hlink{Expr} \lit{) \char'173 }  \\[-0.1in] & &
+\lit{    } \hlink{Instructions} \\[-0.1in] & & 
+\lit{ \char'175  else \char'173 } \\[-0.1in] & &
+\lit{    } \hlink{Instructions} \\[-0.1in] & & 
+\lit{\char'175}  \\[-0.1in] & \choice & 
+\hlink{MPZFunction} \lit{(} \hlink{Variable} \opt{ \lit{,} \hlink{Exprs}} \lit{);} \\[-0.1in] & \choice & 
+\hlink{Variable} \lit{=} \lit{define\_array( } \hlink{Expr} \lit{ );}  \\[-0.1in] & \choice &
+\hlink{Variable} \lit{=} \hlink{Expr} \lit{;}  \\[-0.1in] & \choice &
+\hlink{Variable} \lit{=} \lit{copy( } \hlink{Variable} \lit{ );}  \\[-0.1in] & \choice &
+\hlink{Variable} \lit{=} \lit{mutable( } \hlink{Variable} \lit{ );}  \\[-0.1in] & \choice &
+\hlink{Variable} \lit{= update( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{);} \\[-0.1in] & \choice & 
+\hlink{Variable} \lit{= update\_safe( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{);} \\[-0.1in] & \choice & 
+\hlink{Variable} \lit{= update\_destr( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{);}}
+
+\production{Instructions}{
+\hlink{Instruction} \\ & & \opt{\hlink{Instructions}}}
+
+\production{Variable}{
+\lit{(} \hlink{Type} \lit{,} \hlink{Id}  \lit{)} }
+
+\production{Function}{
+\lit{+}  \choice \lit{*} \choice ... \\[-0.1in] & \choice &
+\hlink{Id} }
+
+\production{MPZFunction}{
+\lit{mpz\_set\_str}  \choice \lit{mpz\_add} \choice ...}
+
+\end{bnf}
+
