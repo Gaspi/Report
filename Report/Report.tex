@@ -922,4 +922,247 @@ Correcting translator PVS to SMT-LIB
 \bibliography{allbib}
 
 
+
+\appendix
+
+\newpage
+\section{Rules}
+
+
+\begin{figure}[h!]
+\begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
+\hline
+             & \cl{B} safe & \cl{B} unsafe \\ \hline
+\cl{B} \mut  & Replace every occurence of the variable \cl{A} by the variable \cl{B} & \begin{lstlisting}
+A = GC_malloc(...);
+for(i ...) {
+  A[i] = B[i]
+}
+\end{lstlisting} \\ \hline
+\cl{B} \nmut & \begin{lstlisting}
+if (GC_count(B) == 1) {
+  A = B;
+} else {
+  A = GC_malloc(...);
+  for(i ...) {
+    A[i] = B[i]
+  }
+}
+\end{lstlisting} & \begin{lstlisting}
+A = GC_malloc(...);
+for(i ...) {
+  A[i] = B[i]
+}
+\end{lstlisting} \\ \hline
+\end{tabular}
+\caption{Rules for \cl{copy(A, B)}}
+\end{figure}
+
+\begin{figure}[h!]
+\begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
+\hline
+             & \cl{B} safe & \cl{B} unsafe \\ \hline
+\cl{B} \mut  & Replace every occurence of the variable \cl{A} by the variable \cl{B} & \begin{lstlisting}
+A = GC_malloc(...);
+for(i ...) {
+  A[i] = B[i]
+}
+\end{lstlisting} \\ \hline
+\cl{B} \nmut & Replace every occurence of the variable \cl{A} by the variable \cl{B} & \begin{lstlisting}
+A = GC( B );
+\end{lstlisting} \\ \hline
+\end{tabular}
+\caption{Rules for \cl{set(A, B)}}
+\end{figure}
+
+
+
+\newpage
+\section{Examples}
+
+
+\begin{figure}[h!]
+\begin{tabular}{|p{5.2cm}|p{5.8cm}|p{6cm}|}
+\hline
+\begin{center}
+PVS code
+\end{center} &
+\begin{center}
+Auxiliary language code
+\end{center} &
+\begin{center}
+C code generated
+\end{center} \\ \hline
+
+\begin{lstlisting}
+f(A:Arr):Arr = A
+\end{lstlisting} &
+\cl{f: ( (A, int*) ) -> int*} \newline
+\cl{set(result, A)} \newline
+\cl{return(result)} &
+\begin{lstlisting}
+int* f(int* A) {
+  return A;
+}
+\end{lstlisting} \\ \hline
+
+\begin{lstlisting}
+f(A:Arr):Arr =
+  let B = A in B
+\end{lstlisting} &
+\cl{f: ( (A, int*) ) -> int*} \newline
+\cl{set(B, A)} \newline
+\cl{set(result, B)} \newline
+\cl{return(result)} &
+\begin{lstlisting}
+int* f(int* A) {
+  return A;
+}
+\end{lstlisting} \\ \hline
+
+\begin{lstlisting}
+f(A:Arr):Cint =
+ let B = A in
+  A(0) + B(0)
+\end{lstlisting} &
+\cl{f: ( (A, int*) ) -> int} \newline
+\cl{set(B, A)} \newline
+\cl{set(result, +( A(0), B(0) ) )} \newline
+\cl{return(result)} &
+\begin{lstlisting}
+int* f(int* A) {
+  int* B = (int*) GC( A );
+  int result = A[0] + B[0];
+  GC_free(B);
+  GC_free(A);
+  return result;
+}
+\end{lstlisting} \\ \hline
+
+\begin{lstlisting}
+f(A:Arr):Arr =
+  let B = A in
+    A WITH [(0) := B(0) ]
+\end{lstlisting} &
+\cl{f: ( (A, int*) ) -> int} \newline
+\cl{set(B, A)} \newline
+\cl{set(L, 0)} \newline
+\cl{set(R, B(0) )} \newline
+\cl{update(result, A, L, R)} \newline
+\cl{return(result)} &
+\begin{lstlisting}
+int* f_d(int* A) {
+  int* B = GC_malloc(...);
+  for(i ...)
+     B[i] = A[i];
+  int L = 0;
+  int R = B[0];
+  int* result = GC( A );
+  result[L] = R;
+  GC_free(B);
+  GC_free(A);
+  return result;
+}
+\end{lstlisting} \\ \hline
+\end{tabular}
+\caption{Examples of setting variables}
+\end{figure}
+
+
+
+
+\begin{figure}[h!]
+\begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
+\hline
+\begin{center}
+PVS code
+\end{center} &
+\begin{center}
+Auxiliary language code
+\end{center} &
+\begin{center}
+C code generated
+\end{center} \\ \hline
+
+\begin{lstlisting}
+f(A:Arr):Arr =
+  A WITH [(0) := 0]
+\end{lstlisting} &
+\cl{f: ( (A, int*) ) -> int*} \newline
+\cl{set(L, 0)} \newline
+\cl{set(R, 0)} \newline
+\cl{copy(result, A)} \newline
+\cl{update(result, L, R)} \newline
+\cl{return(result)} &
+\begin{lstlisting}
+int* f(int* A) {
+  int L = 0, R = 0;
+  int* result;
+  if( GC_count(A) == 1 ) {
+    result = GC( A );
+  } else {
+    result = GC_alloc(...);
+    for(i ...)
+      result[i] = A[i];
+  }
+  result[L] = R;
+  GC_free( A );
+  return result;
+}
+
+int* f_d(int* A) {
+  int L = 0, R = 0;
+  A[L] = R;
+  return A;
+}
+\end{lstlisting} \\ \hline
+
+\begin{lstlisting}
+f(A:Arr):Arr =
+ let B = A WITH[(0):=0]
+ in A WITH[(0) := B(0)]
+\end{lstlisting} &
+\cl{f: ( (A, int*) ) -> int*} \newline
+\cl{set(L1, 0)} \newline
+\cl{set(R1, 0)} \newline
+\cl{copy(B, A)} \newline
+\cl{update(B, L1, R1)} \newline
+\cl{set(L2, 0)} \newline
+\cl{set(R2, B(0))} \newline
+\cl{copy(result, A)} \newline
+\cl{update(result, L1, R1)} \newline
+\cl{return(result)} &
+\begin{lstlisting}
+int* f(int* A) {
+  int R1 = 0, L1 = 0;
+  B = GC_alloc(...);
+  for(i ...)
+    B[i] = A[i];
+  B[L1] = R1;
+  int R2 = 0, L2 = B[0];
+  result = GC_alloc(...);
+  for(i ...)
+    result[i] = A[i];
+  result[L2] = R2;
+  GC_free(A);
+  GC_free(B);
+  return result;
+}
+
+int* f_d(int* A) {
+  int R1 = 0, L1 = 0;
+  B = GC_alloc(...);
+  for(i ...)
+    B[i] = A[i];
+  B[L1] = R1;
+  int R2 = 0, L2 = B[0];
+  A[L2] = R2;
+  GC_free(B);
+  return A;
+}
+\end{lstlisting} \\ \hline
+\end{tabular}
+\caption{Examples of copying variables}
+\end{figure}
+
 \end{document}
