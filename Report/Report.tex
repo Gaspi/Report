@@ -56,8 +56,11 @@
 \newcommand{\mpzt}{\texttt{mpz\_t}}
 \newcommand{\mpqt}{\texttt{mpq\_t}}
 
-\newcommand{\mut}{\textbf{mutable}}
-\newcommand{\nmut}{\textbf{non-mutable}}
+\newcommand{\mut}{  \textbf{ mutable } }
+\newcommand{\nmut}{ \textbf{ non-mutable } }
+\newcommand{\bang}{ \textbf{ mutable } }
+\newcommand{\safe}{ \textbf{ safe } }
+\newcommand{\dupl}{ \textbf{ duplicated } }
 
 
 \title{
@@ -459,34 +462,25 @@ What's missing ?
 
 
 
-\section{Difficulties and successes}
+\section{Update expressions}
 
 
-\subsection{\texttt{if} expressions}
-Represented by \texttt{if-expr}
+ It is a complicated problem to decide while compiling a functionnal language whether an update expression should be translated into a destructive or non destructive update in the target imperative language.\\
 
-\subsection{Integer, rationnals}
-In PVS, the \texttt{integer} represent the whole set $\Z$ of all relative numbers (and \texttt{rational} also describe $\Q$).
-In C, we have finite types
-int, long, ...
-
-We need the GMP library which introduces the types \mpzt and \mpqt.
-These types are arrays and should be used just as integer (not as pointers except they still need to be freed).
-
-\subsection{Update expressions}
-Update expressions are represented by PVS as \texttt{update-expr} objects.
+Update expressions are represented by PVS as \texttt{update-
+expr} objects.
 
 $$ E := \texttt{ t with [ e1 := e2 ] } $$
 
-
 Problem :
 \cl{t} is an expression typed as a function. Therefore it might be represented in C as an array (if domain type is \cl{below($n$)}.
-We want to know if we can update \cl{t} in place to obtain a C object representing \cl{E} or if we have to make a copy of \cl{t}.
+We want to know if we can update \cl{t} in place to obtain a C object representing $E$ or if we have to make a copy of \cl{t}.
 
 
-We consider three solutions to this problem.
+We consider a few solutions to this problem.
 
-\subsubsection{Pointer counting}
+
+\subsection{Pointer counting}
 
 A first solution would be to keep track of the number of pointers pointing to an array or a struct. The idea is that if an array is referenced in several portions of the code (nested reference in other data structure, local variable in calling function, ...) then all update must be done non destructively to avoid inconsistency.
 
@@ -637,7 +631,7 @@ int* f(int* arg) {
 
 
 
-\subsubsection{Using a different data structure}
+\subsection{Using a different data structure}
 
 PVS uses arrays in a very particular way, we might then represent them with an other structure than just only a C array.
 For example :
@@ -663,49 +657,117 @@ Problems : Just as the previous solution :
 - Very dependent on the GC
 
 
-\subsubsection{Flow analysis on the PVS code}
+\subsection{Flow analysis on the PVS code}
 
 An other optimization would be to perform a analysis on the PVS variables to make sure an udate
 Pavol \cite{pavol} suggests three analysis...
 
 
 
-\subsubsection{Analysis of the C code}
+\subsection{Analysis of the C code}
 \label{Canalysis}
 
+This solution consist in performing an analysis on the C code internal representation before generating the actual output C code.\\
+
+We use flags and two different version of the translated functions to translate update expressions (or dangerous function calls) into a destructive update as often as possible.\\
 
 
-Trying to avoid copying arrays by analyzing the C code generated.
+We define three flags:
+\begin{itemize}
+\item \bang means that the variable is the only pointer to the structure or array it points to. For instance if we have \cl{f(A:Arr):Arr = A WITH [(0) := 0]} then when \cl{f} is called in
+$$ \cl{let A = lambda(x:int):x in let B = f(A) in B(0)} $$
+we know that \cl{f} can update \cl{A} in place. We call the following version of \cl{f}.
+\begin{lstlisting}
+int* f(int* A) {
+  A[0] = 0;
+  return A;
+}
+\end{lstlisting}
 
-Each PVS function is translated into two different C functions: a safe non destructive version which and a destructive version.
+\item \safe means that an occurrence of a variable is the last occurrence of that variable in the code. We need this flag to avoid updating destructively variables that appears later in the code. In the previous example, if we encounter
+$$ \cl{let A = lambda(x:int):x in let B = f(A) in B(0) + A(0) }$$
+we know we can't update \cl{A} destructively and we call instead a non-destructive version of \cl{f}:
+\begin{lstlisting}
+int* f(int* A) {
+  int* res = malloc(...);
+  for( i ...) res[i] = A[i];
+  res[0] = 0;
+  return res;
+}
+\end{lstlisting}
 
-The destructive version of a function may have some requirements on the counter of tits arguments. Its arguments may be flagged as \mut, meaning that every call to this version of the function must make sure that the arguments passed can be safely destructively updated.
+\item \dupl means that this expression may find itself nested in the result of the current function. For instance the identity function, \cl{id(A:Arr):Arr = A}, has its argument flagged \dupl. Therefore when \cl{id} is called we know that the result contains a pointer to its argument.
+\begin{lstlisting}
+...
+int* A = malloc(...);
+[ init A somehow ]
+int* B = id(A);
+\\ From now on B and A point to the same array
+\\ For instance, A should probably not be modified in place
+...
+\end{lstlisting}
+\end{itemize}
+
+
+
+Each PVS function is translated into two different C functions: a safe non destructive version and a destructive version.
+
+The destructive version of a function may have some requirements on its arguments. Its arguments may be flagged as \mut, meaning that every call to this version of the function must make sure that the arguments passed can be safely destructively updated.
 
 Example (stripped from GC instructions)
 
 \begin{lstlisting}
-f(int* A, int* B) {
+f(int* A, int* B) {         // A and B are both flagged duplicated
    if (A[0] == 0) {
       return B;
    } else {
-      int* arg1 = copy(B);
+      int* arg1 = copy(B);  // arg1 is flagged mutable and duplicated
       arg1[0] = arg1[0] - 1;
-      f(arg1, A);
+      f(arg1, A); // Both these occurrences of arg1 and A are flagged safe
    }
 }
 
-f_d(int* A, int* B) {  // A and B are flagged mutable
+f_d(int* A, int* B) {  // A and B are both flagged mutable and duplicated
    if (A[0] == 0) {
       return B;
    } else {
-      int* arg1 = B;    // no need to copy since B is mutable
+      int* arg1 = B;    // No need to copy since B is mutable
                         // and never occurs afterwards
       arg1[0] = arg1[0] - 1;
-      f_d(arg1, A);
-   }
+      f_d(arg1, A);     // we can call f_d since the requirements are met:
+   }                    //    both arg1 and A are flagged mutable
 }
-
 \end{lstlisting}
+
+
+
+
+
+We want to ensure the following properties:
+\begin{itemize}
+
+\item Only function declarations and variables with type struct or array can be flagged \bang.
+\item Only a single occurrence of a variable may be flagged \safe.
+\item Only expressions can be flagged \dupl.
+\item The last and only the last occurrence of a variable is flagged \safe.
+\item Arguments of a non destructive function are never flagged \bang.
+\item A function is flagged \bang iif its return variable is flagged \bang.
+\item A variable is flagged bang iif it is created with a \cl{copy}, \cl{init\_array}, \cl{init\_record} or is the result of a call to a function flagged \bang.
+\item A call to a destructive function \cl{f\_d( $a_i$, $b_j$, $c_k$ )} (where $a_i$ are flagged \bang and $b_j$ are flagged \dupl and $c_k$ are not flagged) may only occurs if the following conditions on the arguments passed $( A_i, B_j, C_k )$ are met:
+\begin{itemize}
+\item All $A_i$ are either calls to functions flagged \bang or variables flagged \bang and \safe.
+\item All $B_j$ are either calls to functions or variables flagged \safe or not flagged \bang.
+\item If the function call is flagged \dupl, then all $B_j$ are also flagged \dupl.
+\end{itemize}
+\item If a single occurence of an argument is flagged \dupl, then the argument is flagged \dupl.
+\end{itemize}
+
+
+
+
+
+flags : \bang (variable), \safe (occurences), \dupl (variable)
+
 
 
 
@@ -757,6 +819,9 @@ At the end, when we have reached the transitive closure of this definition, if w
 
 
 \subsubsection{Algorithm}
+
+
+
 
 All variables have three flags: $M$ (mutable), $D$ (duplicated) and $T$ (treated).
 
@@ -875,7 +940,7 @@ for(i = 0; i < l; i++)
 
 
 
-\subsubsection{Combination of solutions}
+\subsection{Combination of solutions}
 
 We use the C code analysis to write some updates as destructive. However a few updates remain non destructive. For example:\\
 
@@ -889,6 +954,23 @@ To prevent that, we also perform a GC check. An update is actually a test wether
 
 
 \section{Conclusion}
+
+
+\subsection{Difficulties and successes}
+
+
+\subsubsection{\texttt{if} expressions}
+Represented by \texttt{if-expr}
+
+\subsubsection{Integer, rationnals}
+In PVS, the \texttt{integer} represent the whole set $\Z$ of all relative numbers (and \texttt{rational} also describe $\Q$).
+In C, we have finite types
+int, long, ...
+
+We need the GMP library which introduces the types \mpzt and \mpqt.
+These types are arrays and should be used just as integer (not as pointers except they still need to be freed).
+
+
 
 \subsection{What's left to be done ?}
 
