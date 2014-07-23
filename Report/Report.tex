@@ -754,9 +754,28 @@ Reading the code backwards, for every occurrence $T$ of a variable flagged \text
 
 At the end, when we have reached the transitive closure of this definition, if we reach the beginning of the function and some arguments are still bang, this means their bangness is never used, put the flag on that argument to \cl{non mutable} and remove the instructions freeing that variable (reminder : mutable arguments of a functions are freed inside the function or are used in a mutable way and appear somewhere in the result (trapped in closures) or are freed in other function calls.
 
+
+
 \subsubsection{Algorithm}
 
+All variables have three flags: $M$ (mutable), $D$ (duplicated) and $T$ (treated).
+
+Init:\\
+All arguments of a destructive function are flagged \cl{($M$ = true, $D$ = false, $T$ = true)}.\\
+All arguments of a non destructive function are flagged \cl{($M$ = false, $D$ = false, $T$ = true)}.\\
+All other variables are flagged \cl{($M$ = false, $D$ = false, $T$ = false)}.\\
+
+Rules:\\
+When $M$ is changed, $T$ is set to \cl{true}.\\
+When $T$ is \cl{true}, the flag $M$ can only be set to \cl{false}.
+This prevent infinite change of the flag $M$.\\
+The flag $D$ can only be set to \cl{true}.\\
+
+
+
 Initialization:\\
+
+
 We initialize a set $M$ of mutable variables to all array arguments of a function $f$.
 We also initialize a set $F$ of variables to free to $M$ since $f$ has the resposnability to free all variables flagged as mutable arguments.\\
 
