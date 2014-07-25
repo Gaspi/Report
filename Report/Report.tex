@@ -629,7 +629,8 @@ We want to ensure the following properties:
 \item The last and only the last occurrence of a variable is flagged \safe.
 \item Arguments of a non destructive function are never flagged \bang.
 \item A function is flagged \bang iif its return variable is flagged \bang.
-\item A variable is flagged bang iif it is created with a \cl{copy}, \cl{init\_array}, \cl{init\_record} or is the result of a call to a function flagged \bang.
+\item A variable may be flagged bang if it is created with a \cl{copy}, \cl{init\_array}, \cl{init\_record} or is the result of a call to a function flagged \bang.\\
+It may not be flagged \bang if it is the result of a call to a function not flagged \bang.
 \item A call to a destructive function \cl{f\_d( $a_i$, $b_j$, $c_k$ )} (where $a_i$ are flagged \bang and $b_j$ are flagged \dupl and $c_k$ are not flagged) may only occurs if the following conditions on the arguments passed $( A_i, B_j, C_k )$ are met:
 \begin{itemize}
 \item All $A_i$ are either calls to functions flagged \bang or variables flagged \bang and \safe.
@@ -907,6 +908,8 @@ void (mpz_t result, mpz_t x, mpz_t y) {
 \end{figure}
 
 
+\subsubsection{Working with new languages and tools}
+I had to learn three languages PVS, C, Common Lisp.
 
 
 
