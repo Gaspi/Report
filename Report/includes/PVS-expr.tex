@@ -6,9 +6,8 @@
 \begin{bnf}
 
 \production{Expr}{
-\hlink{Number} \\[-0.1in] & \choice &
-\hlink{Name} \\[-0.1in] & \choice &
-Expr\ \hlink{Arguments} \\[-0.1in] & \choice &
+\hlink{Number} \choice \hlink{Name} \choice
+Expr \lit{(} \ites{\hlink{Expr}}{,} \lit{)} \\[-0.1in] & \choice &
 Expr\ \hlink{Binop}\ Expr \\[-0.1in] & \choice &
 \hlink{Unaryop}\ Expr \\[-0.1in] & \choice &
 Expr \lit{`} \brc{ \hlink{Id} \choice \hlink{Number} } \\[-0.1in] & \choice &
@@ -25,8 +24,8 @@ Expr \lit{WITH} \lit{[} \ites{\hlink{Assignment}}{,} \lit{]}}
 \production{Letter}{\lit{A} \choice \ldots \choice \lit{Z}}
 \production{Digit}{\lit{0} \choice \ldots \choice \lit{9}}
 
-\production{Arguments}
-{\lit{(} \ites{\hlink{Expr}}{,} \lit{)}}
+%% \production{Arguments}
+%% {\lit{(} \ites{\hlink{Expr}}{,} \lit{)}}
 
 \production{IfExpr}
 {\lit{IF} \hlink{Expr} \lit{THEN} \hlink{Expr} \\[-0.1in]
@@ -49,9 +48,7 @@ Expr \lit{WITH} \lit{[} \ites{\hlink{Assignment}}{,} \lit{]}}
 { \ite{\hlink{AssignArg}} \brc{\lit{:=} \choice \lit{|->}} \hlink{Expr}}
 
 \production{AssignArg}
-{\lit{(} \ites{\hlink{Expr}}{,} \lit{)} \\[-0.1in]
-& \choice & \lit{`} \hlink{Id} \\[-0.1in]
-& \choice & \lit{`} \hlink{Number}}
+{\lit{(} \ites{\hlink{Expr}}{,} \lit{)}  \choice \lit{`} \hlink{Id} \choice \lit{`} \hlink{Number}}
 
 \production{LetBinding}
 {\brc{\hlink{LetBind} \choice \lit{(} \ites{\hlink{LetBind}}{,} \lit{)}} \lit{=} \hlink{Expr}}

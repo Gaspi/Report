@@ -63,6 +63,7 @@
 \newcommand{\dupl}{ \textbf{ duplicated } }
 
 
+
 \title{
 \vspace{-3cm}
 \normalsize
@@ -137,78 +138,11 @@ The objective is, of course, to be able to translate the maximum of (if not all)
 
 \subsection{PVS Syntax}
 
-We describe here the syntax of PVS and the objects system used to represent them in Lisp. Some slots of the classes are voluntarily omitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
+In Figure~\ref{fig:PVSsyntax}, we describe the subset of PVS we translate to C.
 
-\begin{figure}
-\input{includes/bnf-expr-aux}
-\caption{Syntax of the PVS subset of the translator}
-\end{figure}
+In Figure~\ref{fig:PVS-CLOS}, we describe the object system used to represent them in Common Lisp. Some classes and some slots in the classes are voluntarily ommitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
 
 
-\begin{figure}
-\begin{class}{expr}{abstract}{\classhln{syntax}}
-{\slotidx{type} & the type of the expression}
-\end{class}
-
-\begin{class}{name}{mixin}{\classhln{syntax}}
-{\slotidx{id} & the identifier \\
- \slotidx{actuals} & a list of actual parameters \\
- \slotidx{resolutions} & singleton}
-This is a mixin for names, i.e., \texttt{name-expr}s, \texttt{type-name}s, etc.
-\end{class}
-
-\begin{class}{name-expr}{}{\classhln{name} \classhln{expr}}{}
-\end{class}
-
-\begin{class}{number-expr}{}{\classhln{expr}}{\slotidx{number} & a nonnegative integer}
-\end{class}
-
-\begin{class}{tuple-expr}{}{\classhln{expr}}{\slotidx{exprs} & a list of expressions}
-\end{class}
-
-\begin{class}{application}{}{\classhln{expr}}%
-{\slotidx{operator} & an expr \\
- \slotidx{argument} & an expr (maybe a tuple-expr)}
-\end{class}
-
-\begin{class}{field-application}{}{\classhln{expr}}%
-{\slotidx{id} & identifier \\
- \slotidx{actuals} & a list of actuals \\
- \slotidx{argument} & the argument}
-A field application is the internal representation for record extraction,
-e.g., \texttt{r`a}
-\end{class}
-
-\begin{class}{record-expr}{}{\classhln{expr}}{\slotidx{assignments} & a list of assignments}
-\end{class}
-
-\begin{class}{lambda-expr}{}{\classhln{binding-expr}}{}
-This is the subclass of \texttt{binding-expr} used for LAMBDA expressions.
-\end{class}
-
-\begin{class}{if-expr}{}{\classhln{application}}{}
-When an application has an operator that resolves to the \texttt{if\_def} it is changed to this class.
-\end{class}
-
-\begin{class}{update-expr}{}{\classhln{expr}}
-{\slotidx{expression} & an expr \\
- \slotidx{assignments} & a list of assignments}
-An update expression of the form \texttt{e WITH [x := 1, y := 2]}, maps to
-an \texttt{update-expr} instance, where the \texttt{expression} is
-\texttt{e}, and the \texttt{assignments} slot is set to the list of
-generated \texttt{assigment} instances.
-\end{class}
-
-\begin{class}{assignment}{}{\classhln{syntax}}
-{\slotidx{arguments} & the list of arguments \\
- \slotidx{expression} & the value expression}
-Assignments occur in both record-exprs and update-exprs.\\
-The \texttt{arguments} form is a list of lists.  For example, given the assignment \texttt{`a(x, y)`1 := 0}, the \texttt{arguments} are
-\texttt{((a) (x y) (1))} and the \texttt{expression} is \texttt{0}.
-\end{class}
-
-\caption{(Partial) CLOS representation of PVS expressions}
-\end{figure}
 
 
 \subsection{Translator architecture}
@@ -223,14 +157,15 @@ Output objects
 
 Assertions that we (try to) maintain
 
-Main steps :
+
+The translation from PVS to C is made following five main steps:
 \begin{itemize}
 \item Typechecking: The PVS typechecker perform a type analysis on the PVS code to associate a PVS type to each expression. This might generates some proof obligations (TCC).
-\item Lexical and syntactic analysis: The PVS parser transforms PVS code into a Lisp internal representation.
+\item Lexical and syntactic analysis: The PVS parser transforms PVS code into a CLOS internal representation.
 \item Translation: The translator generates a different representation from PVS expressions and functions declarations.
 Typically, an expression $e$ is translated into a tuple of four elements $(t,n,i,d)$, where $t$ represents a C type used to describe the expression, $n$ is a string representing the expression, $i$ is a list of instructions supposed to be executed prior to using $n$ (initialisation of $n$) and $d$ is a list of instructions to be executed when $n$ isn't needed anymore (destruction of $n$).
-\item Optimizations
-\item Code generation: C code is generated.
+\item Analysis and optimizations: We run several analysis on the code representation. In particular, we determine the adapted C types, we try to avoid unnecessary copies and non destructive updates when possible using flow analysis and an enriched type system.
+\item Code generation: C code is generated (.c and .h files) and can be compiled using gcc and executed when linked with the garbage collector and the GMP library. 
 \end{itemize}
 
 We first define a function $T$ to translate an expression $e$.
@@ -294,37 +229,12 @@ application "f(e1, e2)"
 \subsection{PVS Types}
 A PVS theory can be typechecked using the emacs interface \cl{M-x typecheck} or with Lisp function \cl{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
-Here we describe how PVS types are represented in Lisp.
+Here we describe how PVS types are represented in 
+Lisp.
 
-\begin{figure}
-\input{includes/bnf-type-expr}
-\caption{Fragment of the PVS type system}
-\end{figure}
+Figure~\ref{fig:PVS-types} \\
+Figure~\ref{fig:PVS-CLOS-types}
 
-
-\begin{figure}
-\begin{class}{type-expr}{abstract}{\classhln{syntax}}
-{}
-\end{class}
-\begin{class}{type-name}{}{\classhln{type-expr} \classhln{name}}
-{\slotidx{adt} & }
-\end{class}
-\begin{class}{subtype}{}{\classhln{type-expr}}
-{\slotidx{supertype} & \\
- \slotidx{predicate} & }
-\end{class}
-\begin{class}{funtype}{}{\classhln{type-expr}}
-{\slotidx{domain} & \\
- \slotidx{range} & }
-\end{class}
-\begin{class}{tupletype}{}{\classhln{type-expr}}
-{\slotidx{types} & }
-\end{class}
-\begin{class}{recordtype}{}{\classhln{type-expr}}
-{\slotidx{fields} & }
-\end{class}
-\caption{(Partial) CLOS representation of PVS types}
-\end{figure}
 
 \subsection{Translating types}
 PVS types:\\
@@ -454,10 +364,11 @@ What's missing ?
 
 \subsection{Using a representation of the C language}
 
-\begin{figure}
-\input{includes/C-expr}
-\caption{Syntax of the representation of the target language (subset of the C language)}
-\end{figure}
+Figure~\ref{fig:Csyntax}
+
+
+
+
 
 
 
@@ -708,14 +619,41 @@ int* B = id(A);
 \end{lstlisting}
 \end{itemize}
 
+We want to ensure the following properties:
+
+\begin{figure}
+\begin{itemize}
+\item Only function declarations and variables with type struct or array can be flagged \bang.
+\item Only a single occurrence of a variable may be flagged \safe.
+\item Only expressions and arguments can be flagged \dupl.
+\item The last and only the last occurrence of a variable is flagged \safe.
+\item Arguments of a non destructive function are never flagged \bang.
+\item A function is flagged \bang iif its return variable is flagged \bang.
+\item A variable is flagged bang iif it is created with a \cl{copy}, \cl{init\_array}, \cl{init\_record} or is the result of a call to a function flagged \bang.
+\item A call to a destructive function \cl{f\_d( $a_i$, $b_j$, $c_k$ )} (where $a_i$ are flagged \bang and $b_j$ are flagged \dupl and $c_k$ are not flagged) may only occurs if the following conditions on the arguments passed $( A_i, B_j, C_k )$ are met:
+\begin{itemize}
+\item All $A_i$ are either calls to functions flagged \bang or variables flagged \bang and \safe.
+\item All $B_j$ are either calls to functions or variables flagged \safe or not flagged \bang.
+\item If the function call is flagged \dupl, then all $B_j$ are also flagged \dupl.
+\end{itemize}
+\item If a variable is once flagged \dupl, then if it is an argument, this argument is also flagged \dupl.
+\end{itemize}
+\caption{Propeties of the flags}
+\label{fig:properties}
+\end{figure}
 
 
-Each PVS function is translated into two different C functions: a safe non destructive version and a destructive version.
 
-The destructive version of a function may have some requirements on its arguments. Its arguments may be flagged as \mut, meaning that every call to this version of the function must make sure that the arguments passed can be safely destructively updated.
+\subsubsection{Algorithm}
 
-Example (stripped from GC instructions)
+Each PVS function is translated into two different C functions:
+\begin{itemize}
+\item A "cautious" non destructive version whose arguments are never \bang and therefore never modifies the arguments in place, always making copies when necessary. This doesn't mean this function can't make destructive update. For instance locally created arrays (using \cl{init\_array}) will be flagged \bang and might be destructively updated, should the conditions be met.
+\item A destructive version which requires as many arguments as possible to be \bang and tries to do destructive updates as often as possible. This function only requires \bang arguments if it uses it destructively though.
+\end{itemize}
 
+
+\begin{figure}
 \begin{lstlisting}
 f(int* A, int* B) {         // A and B are both flagged duplicated
    if (A[0] == 0) {
@@ -738,43 +676,26 @@ f_d(int* A, int* B) {  // A and B are both flagged mutable and duplicated
    }                    //    both arg1 and A are flagged mutable
 }
 \end{lstlisting}
+\caption{Example of the two different versions of a C function generated (stripped from GC instructions)}
+\end{figure}
 
 
 
 
-
-We want to ensure the following properties:
+\begin{figure}
 \begin{itemize}
-
-\item Only function declarations and variables with type struct or array can be flagged \bang.
-\item Only a single occurrence of a variable may be flagged \safe.
-\item Only expressions can be flagged \dupl.
-\item The last and only the last occurrence of a variable is flagged \safe.
-\item Arguments of a non destructive function are never flagged \bang.
-\item A function is flagged \bang iif its return variable is flagged \bang.
-\item A variable is flagged bang iif it is created with a \cl{copy}, \cl{init\_array}, \cl{init\_record} or is the result of a call to a function flagged \bang.
-\item A call to a destructive function \cl{f\_d( $a_i$, $b_j$, $c_k$ )} (where $a_i$ are flagged \bang and $b_j$ are flagged \dupl and $c_k$ are not flagged) may only occurs if the following conditions on the arguments passed $( A_i, B_j, C_k )$ are met:
-\begin{itemize}
-\item All $A_i$ are either calls to functions flagged \bang or variables flagged \bang and \safe.
-\item All $B_j$ are either calls to functions or variables flagged \safe or not flagged \bang.
-\item If the function call is flagged \dupl, then all $B_j$ are also flagged \dupl.
+\item Create the two versions of a function
+\item Flag all arguments \bang in destructive version
+\item Perform several passes and move flags to make sure the properties Figure~\ref{fir:properties} are verified.
+\item Modify the code if the flags allow it according to the rules defined in the Annex~\ref{Rules}.
+\item Redo the two previous steps until stabilization.
 \end{itemize}
-\item If a single occurence of an argument is flagged \dupl, then the argument is flagged \dupl.
-\end{itemize}
+\caption{Algorithm}
+\end{figure}
 
 
 
 
-
-flags : \bang (variable), \safe (occurences), \dupl (variable)
-
-
-
-
-
-Algorithm :
-
-Always have a "non destructive" version of any function. A "cautious" version that never modify the arguments in place and always make copies when necessary (when a "mutable" version of an array is necessary (for instance updates)).
 
 In destructive versions of all functions :
 Flag all array arguments to "mutable".
@@ -952,23 +873,40 @@ To prevent that, we also perform a GC check. An update is actually a test wether
 
 
 
-
+\newpage
 \section{Conclusion}
 
 
 \subsection{Difficulties and successes}
 
 
-\subsubsection{\texttt{if} expressions}
-Represented by \texttt{if-expr}
-
-\subsubsection{Integer, rationnals}
+\subsubsection{Integrating the GMP library}
 In PVS, the \texttt{integer} represent the whole set $\Z$ of all relative numbers (and \texttt{rational} also describe $\Q$).
-In C, we have finite types
-int, long, ...
+To implement that in C, we need more than the finite types \cl{int}, \cl{long}, ...
 
-We need the GMP library which introduces the types \mpzt and \mpqt.
-These types are arrays and should be used just as integer (not as pointers except they still need to be freed).
+We use the GMP library which introduces the types \mpzt and \mpqt. These types are pointers (actually arrays) to structures and they had to be used with caution (allocation, freeing, ...).
+
+For example, a function returning a \mpzt should actually take a first \mpzt argument and set it to the return value. Its return type being \cl{void}.
+
+\begin{figure}[h!]
+\cl{norm(x:int, y:int):int = x*x + y*y}
+\begin{lstlisting}
+void (mpz_t result, mpz_t x, mpz_t y) {
+  mpz_t aux1;
+  mpz_init(aux1);
+  mpz_mul(aux1, x, x);
+  mpz_t aux2;
+  mpz_init(aux2);
+  mpz_mul(aux2, y, y);
+  mpz_add(result, aux1, aux2);
+  mpz_clear aux1;
+  mpz_clear aux2;
+}
+\end{lstlisting}
+\caption{Example of the GMP library use}
+\end{figure}
+
+
 
 
 
@@ -1019,62 +957,162 @@ Correcting translator PVS to SMT-LIB
 
 
 
+
+
 \bibliographystyle{plain}
 \bibliography{allbib}
+
+
 
 
 
 \appendix
 
 \newpage
+\section{PVS Syntax and CLOS representation}
+
+\begin{figure}[h]
+\input{includes/PVS-expr}
+\caption{Syntax of the PVS subset of the translator}
+\label{fig:PVSsyntax}
+\end{figure}
+
+\begin{figure}[h!]
+\input{includes/PVS-CLOS}
+\caption{(Partial) CLOS representation of PVS syntax}
+\label{fig:PVS-CLOS}
+\end{figure}
+
+\newpage
+\section{PVS type system and CLOS representation}
+
+\begin{figure}[h!]
+\input{includes/PVS-type}
+\caption{Fragment of the PVS type system}
+\label{fig:PVS-types}
+\end{figure}
+
+
+\begin{figure}[h!]
+\input{includes/PVS-CLOS-type}
+\caption{(Partial) CLOS representation of PVS types}
+\label{fig:PVS-CLOS-types}
+\end{figure}
+
+
+\newpage
+\section{Target language and CLOS representation}
+
+
+\begin{figure}[h!]
+\input{includes/C-expr}
+\caption{Syntax of the representation of the target language (subset of the C language)}
+\label{fig:Csyntax}
+\end{figure}
+
+
+
+
+
+\newpage
 \section{Rules}
+\label{Rules}
 
 
 \begin{figure}[h!]
 \begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
 \hline
-             & \cl{B} safe & \cl{B} unsafe \\ \hline
-\cl{B} \mut  & Replace every occurence of the variable \cl{A} by the variable \cl{B} & \begin{lstlisting}
-A = GC_malloc(...);
+             & \cl{A} \safe & \cl{A} not \safe \\ \hline
+\cl{A} \mut  & Replace every occurence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
+B = GC_malloc(...);
 for(i ...) {
-  A[i] = B[i]
+  B[i] = A[i];
 }
 \end{lstlisting} \\ \hline
-\cl{B} \nmut & \begin{lstlisting}
-if (GC_count(B) == 1) {
-  A = B;
+\cl{A} \nmut & \begin{lstlisting}
+if (GC_count(A) == 1) {
+  B = A;
 } else {
-  A = GC_malloc(...);
+  B = GC_malloc(...);
   for(i ...) {
-    A[i] = B[i]
+    B[i] = A[i];
   }
 }
 \end{lstlisting} & \begin{lstlisting}
-A = GC_malloc(...);
+B = GC_malloc(...);
 for(i ...) {
-  A[i] = B[i]
+  B[i] = A[i];
 }
 \end{lstlisting} \\ \hline
 \end{tabular}
-\caption{Rules for \cl{copy(A, B)}}
+\caption{Rules for \cl{copy(B, A)}}
 \end{figure}
+
+
 
 \begin{figure}[h!]
 \begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
 \hline
-             & \cl{B} safe & \cl{B} unsafe \\ \hline
-\cl{B} \mut  & Replace every occurence of the variable \cl{A} by the variable \cl{B} & \begin{lstlisting}
-A = GC_malloc(...);
+             & \cl{A} \safe & \cl{A} not \safe \\ \hline
+\cl{A} \mut  & Replace every occurence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
+B = GC_malloc(...);
 for(i ...) {
-  A[i] = B[i]
+  B[i] = A[i]
 }
 \end{lstlisting} \\ \hline
-\cl{B} \nmut & Replace every occurence of the variable \cl{A} by the variable \cl{B} & \begin{lstlisting}
-A = GC( B );
+\cl{A} \nmut & Replace every occurence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
+B = GC( A );
+\end{lstlisting}
+If \cl{B} is flagged \dupl then \cl{A} must be too.
+\\ \hline
+\end{tabular}
+\caption{Rules for \cl{set(B, A)}}
+\end{figure}
+
+
+
+\begin{figure}[h!]
+\begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
+\hline
+             & \cl{A} \safe & \cl{A} not \safe \\ \hline
+\cl{A} \bang  &
+\begin{lstlisting}
+f_d(A)
+\end{lstlisting} & \begin{lstlisting}
+f(A)
+\end{lstlisting} \\ \hline
+\cl{A} not \bang & \begin{lstlisting}
+f(A)
+\end{lstlisting} & \begin{lstlisting}
+f(A)
 \end{lstlisting} \\ \hline
 \end{tabular}
-\caption{Rules for \cl{set(A, B)}}
+\caption{Rules for \cl{f(A)} with \cl{A} flagged \bang in the destructive version}
 \end{figure}
+
+
+\begin{figure}[h!]
+\begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
+\hline
+             & \cl{A} \safe & \cl{A} not \safe \\ \hline
+\cl{A} \bang  &
+\begin{lstlisting}
+f(A)
+\end{lstlisting} & \begin{lstlisting}
+copy(B, A)
+f(B)
+\end{lstlisting} \\ \hline
+\cl{A} not \bang & \begin{lstlisting}
+f(A)
+\end{lstlisting} & \begin{lstlisting}
+f(A)
+\end{lstlisting} \\ \hline
+\end{tabular}
+\caption{Rules for \cl{f(A)} with \cl{A} flagged \dupl}
+\end{figure}
+
+
+
 
 
 
@@ -1168,8 +1206,6 @@ int* f_d(int* A) {
 \end{tabular}
 \caption{Examples of setting variables}
 \end{figure}
-
-
 
 
 \begin{figure}[h!]
