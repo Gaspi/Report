@@ -104,17 +104,49 @@ Nom et adresse de l'organisme :  & SRI International \\
 \begin{document}
 
 \maketitle
+
+\vspace{2.2in}
+\begin{abstract}
+SAT solvers can generate proofs that justify their final result.
+This report presents a verified program that checks if the generated proofs are valid. The checker is written and
+proved in PVS. In order to execute it, Lisp code is automatically generated. 
+We describe a trusted kernel called the Kernel of Truth. 
+Finally, we prove that it exists a valid kernel proof corresponding to any valid checker proof. 
+This demonstrates that the checker is a safe extension of the kernel.
+\end{abstract}
+
 \tableofcontents
 \newpage
 
 \section{Introduction}
 
+Before starting, I would like to thank Dr. Natarajan Shankar for making this internship possible and for the many enlightning conversations we had.
 
-\section{SRI}
+Sam Owre was
+
+giving me the chance to work on this project and for helping me
+throughout all my internship. I also had great help from Sam Owre and from Dr. Bruno Dutertre. \\
+
+
+
+
+\subsection{PVS Overview}
+
+PVS  (Prototype Verification System) is an environment for specification and proving. The main purpose of PVS is to provide 
+formal support for conceptualization and debugging in the early stages of the lifecycle of the design
+of hardware or software systems. In these stages, both the requirements and designs are expressed in abstract
+terms that are not necessarily executable. The best way to analyze such an abstract specification is by 
+attempting proofs of desirable consequences of the specification. Subtle errors revealed by trying to prove
+the properties are costly to detect and correct at later stages of the design lifecycle.
+\\The specification language of PVS is built on higher-order logic (functions can be treated like
+primitive types: functions can take functions as arguments and return them as values, quantification
+can be applied to function variables. Specifications can be constructed using definitions and axioms
+
+
+
 
 \subsection{The HACMS Project}
 
-\subsection{PVS}
 
 \subsection{Translating PVS}
 \subsubsection{Parsing and typechecking PVS}
@@ -134,7 +166,7 @@ The objective is, of course, to be able to translate the maximum of (if not all)
 
 
 
-\section{Translating PVS Syntax}
+\section{PVS syntax}
 
 \subsection{PVS Syntax}
 
@@ -224,10 +256,10 @@ application "f(e1, e2)"
 
 
 
-\section{Types}
+\section{PVS type system}
 
 \subsection{PVS Types}
-A PVS theory can be typechecked using the emacs interface \cl{M-x typecheck} or with Lisp function \cl{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
+A PVS theory can be typechecked using the emacs interface \cl{M-x typecheck} or calling the Lisp function \cl{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
 Here we describe how PVS types are represented in 
 Lisp.
@@ -393,19 +425,13 @@ We consider a few solutions to this problem.
 
 \subsection{Pointer counting}
 
-A first solution would be to keep track of the number of pointers pointing to an array or a struct. The idea is that if an array is referenced in several portions of the code (nested reference in other data structure, local variable in calling function, ...) then all update must be done non destructively to avoid inconsistency.
+Several systems rely on a reference couting garbage collectors. This family of garbage collectors has many advantages \cite{jonesgarbage}. Along with its simplicity and the instantaneity of garbage identification, the one we are interested in is the possibility to determine when a local variable is the only pointer to a complex data structure. In that case, at the cost of a simple test, we can avoid copies and perform destructive updates. \\
 
+The idea is to keep track of the number of pointers pointing to an array or a struct. If an array is referenced in several portions of the code (nested reference in other data structure, local variable in calling function, ...) then we mus be able, using the pointer counter, to perform all updates non destructively to avoid inconsistency.\\
 
+We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage} and integrate it to the C code generated.\\
 
-
-We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage}.\\
-
-We maintain a hashtable of pointer counters.
-Each pointer in the code is a key in the hastable to which we associate an int counter as value.\\
-
-Pointers only occurs in arrays or struct.\\
-
-Arrays are created in the code.\\
+The GC consists on a hashtable of pointer counters that we maintain during the execution of the code. Each pointer to data allocated on the heap is a key in the hastable to which we associate an int counter as value. We then make sure that all memory allocations in the code make a call to the GC to "declare" the new memory.
 
 \begin{tabular}{|p{5cm}|p{11cm}|}
 \hline
@@ -415,7 +441,7 @@ T* a = malloc(
 \end{lstlisting} & \begin{lstlisting}
 T* a = (T*) GC_malloc(10 * sizeof(int));
 \end{lstlisting}
-All memory allocation are handled by the GC to make sure every new reference on the heap is in the reference table and has a pointer counter.
+All memory allocation are handled by the GC to make sure every new reference on the heap is in the reference table and has a pointer counter associated to it.
 \\ \hline
 \begin{lstlisting}
 free(a);
@@ -438,40 +464,70 @@ t[0] = (T*) GC( b );
 This time, we also make sure the reference counter of \cl{t[0]} is decremented and \cl{t[0]} has a chance to be freed if nothing else points to it.\\ \hline
 \end{tabular}
 
+This requires to build our own C garbage collector \ref{fig:GC.h}.
 
-
-
-
-Examples
-
+\begin{figure}
 \begin{lstlisting}
-int* f() {
-  int* res;
-  res = (int*) GC_alloc( 10 * sizeof(int) );
-  [... init res...]
-  return res; // pointer count = 1
-}
-
-void main() {
-   int* a = f();  // pointer counter of a = 1
-   int** b = (int**) GC_alloc( sizeof( int*) );
-   GC_free( b[0] );  // useless
-   b[0] = (int*) GC( a );  // pointer counter of a = 2
-   printf("f(0) = %s", b[0][0]);
-   GC_free(b); // frees b, pointer count of a = 1
-   GC_free(a); // frees a
-}
-\end{lstlisting}
-
-This requires to build our own C struct (heavy)
-\begin{lstlisting}
-struct array_int {
-   int pointer_count = 1;
-   int *data;
+struct entry_s {
+   void*  pointer;
+   int    counter;
+   struct entry_s *tl;
 };
-\end{lstlisting}
+typedef struct entry_s* entry;
 
-When \cl{A} points to an array (or \cl{struct}) we want to update destructively, we first check if the pointer counter on \cl{A} is 1. If so, we can update in place because only \cl{A} points to the array.\\
+struct hashtable_s {
+   int    size;
+   entry* table;	
+}; 
+typedef struct hashtable_s* hashtable;
+
+hashtable ht_create  ( int size );
+int       ht_hashfunc( hashtable hashtable, void* pointer );
+entry     ht_newentry( void* pointer );
+
+hashtable GC_hashtable;
+void      GC_start();
+void      GC_quit();
+entry     GC_get_entry( void* pointer );
+void      GC_add_entry( entry e);
+void      GC_new( void* pointer );
+void*     GC( void* pointer );
+int       GC_count( void* pointer );
+void*     GC_malloc( int length, int size );
+int       GC_free(void* pointer);
+\end{lstlisting}
+\caption{Garbage collector C header file: GC.h}
+\label{fig:GC.h}
+\end{figure}
+
+
+
+\subsubsection{How to use it}
+
+The garbage collector mus be used for every manipulation of pointers to memory allocated on the heap. This occurs typically when representing PVS arrays or data structure. These rrays are created in the code.\\
+
+%% Deprecated example...
+%\begin{lstlisting}
+%int* f() {
+%  int* res;
+%  res = (int*) GC_alloc( 10 * sizeof(int) );
+%  [... init res...]
+%  return res; // pointer count = 1
+%}
+%
+%void main() {
+%   int* a = f();  // pointer counter of a = 1
+%   int** b = (int**) GC_alloc( sizeof( int*) );
+%   GC_free( b[0] );  // useless
+%   b[0] = (int*) GC( a );  // pointer counter of a = 2
+%   printf("f(0) = %s", b[0][0]);
+%   GC_free(b); // frees b, pointer count of a = 1
+%   GC_free(a); // frees a
+%}
+%\end{lstlisting}
+
+
+When \cl{A} points to an array (or \cl{struct}) we want to update destructively, we first check if the pointer counter on \cl{A} is 1. If so, we can update in place because only the local variable \cl{A} points to the array.\\
 
 However, we need to be carefull.
 $$ \cl{g(A:Array) : int = f(A, A WITH [(0) := 3] )}$$
@@ -482,51 +538,102 @@ g(int* A) {
   return f(A, A);
 }
 \end{lstlisting}
-for two reasons:
+for (at least) two reasons:
 \begin{itemize}
 \item The variable \cl{A} is updated destructively but it is later used as a reference to the previous value of the array.
 \item \cl{f} is given twice a pointer to the same data structure. Its reference counter should be incremented.
 \end{itemize}
 
+Instead we could flatten the expression \ref{fig:exampleGC}.
 
-Instead we could flatten the expression
+\begin{figure}[h!]
 \begin{lstlisting}
+void main() {
+   GC_start();
+   
+   int* A = GC_malloc(10, sizeof(int) );  // Pointer counter of A = 1
+   int i;
+   for(i = 0; i < 10; i++)  // Initialisation of A
+      A[i] = i;             // Here A = lambda(x):x
+   int* B = g( GC(A) );     // We need A further, we make sure that g knows
+   int* C = A;              // main still has a pointer to A
+   printf("Pointers to C = %d", GC_count(C) ); // equal to 2
+   GC_free(B); // Frees B
+   GC_free(C); // Only decrement the counter of C
+   GC_free(A); // Frees A (and C)
+   GC_quit();
+}
+
 g(int* A) {
   int* arg1 = GC(A);           // A and arg1 now both point to the array
-  int* arg2 = update(A, 0, 3); // cannot be done destructively
-  int* result = f(arg1, arg2);
-  GC_free(A); // A function is responsible for freeing its arguments
-              // (this is why we don't free arg1 and arg2)
+  int* arg2;
+  if (GC(A) == 1)             // This is false
+     arg2 = GC( A );
+  else {                      // The update must be done non destructively
+     arg2 = GC_malloc( 10, sizeof(int) );
+     int i;
+     for(i =0; i < 10; i++)
+         arg2[i] = A[i];
+  }  
+  arg2[0] = 3;
+  GC_free(A);                 // A is never used afterwards, we free it here
+                              //(this requires an analysis of the C code)
+  int* result = f(arg1, arg2);// A function is responsible for freeing its arguments
+                              // (this is why we don't free arg1 and arg2)
   return result;
 }
 \end{lstlisting}
+\caption{Example of the use of the GC}
+\label{fig:exampleGC}
+\end{figure}
+
+
 But again, we are lucky here that \cl{A} is the first argument of \cl{f}. If the updated \cl{A} were the first arguments, the update would have been done destructively.
 This is why the GC alone is not enoug. We need an analysis of the C code to determine whether a variable is goingto be used later in the code or not. cf \hyperref[Canalysis]{\ref*{Canalysis} Analysis of the C code}.
 
 
 \subsubsection{Pros and cons}
 
+The use of a garbage collector integrated in the C code seems like a good idea when translating a functionnal language to C. Using a pointer counting GC allows to 
 
-Every update require now tests and calls to hashtable functions (small compared to the copy it allows to avoid but no so small compared to a single in place update that could be decided by a code analysis)\\
+We need an analysis of the C code for two reasons:
+\begin{itemize}
+\item To \cl{GC\_free} variable as soon as they are not needed anymore. Otherwise copies that could be avoided are performed because an other (useless) pointer still points to the structure we're interested in.
+\begin{lstlisting}
+  int* B = GC( A );
+  update(B, 0, 1); // Can't be done destructively because A also points to
+  GC_free(A);     // the same data as B
+  f( GC(B) );     // f is given a variable with a reference counter of 2.
+  GC_free( B );   // It might not be able to perform some update destructively
+\end{lstlisting}
+Should be
+\begin{lstlisting}
+  int* B = A;
+  update(B, 0, 1);  // Can be done destructively
+  f( B );           // f is given a variable with a reference counter of 1.
+\end{lstlisting}
+\item 
+\end{itemize}
 
-Besides, the creation / destruction gets more complicated\\
+Every update require now tests and calls to hashtable functions. This is a small cost compared to the copying it may allow to avoid but no so small compared to a single in place update that could be decided by a code analysis.\\
+
+Besides, the code gets much bigger since every update or copy requires the code to both destructive and non destructive operation and the if statement to decide which one to use.
 
 Passing argument to function :
 \begin{lstlisting}
 int* f(int* arg) {
-   if ( GC_count(arg) == 1) {
-      arg[0] = 3;
-      return arg;
-   } else {
-      int* res;
-      res = GC_malloc(10 * sizeof(int));
+   int* result;
+   if ( GC_count(arg) == 1)
+      result = GC( arg );
+   else {
+      result = GC_malloc(10, sizeof(int));
       int i;
       for(i = 0; i < 10; i++)
-         res[i] = GC( arg[i] );
-      GC_free(arg);
-      res[0] = 3;
-      return res;
+         result[i] = GC( arg[i] );
    }
+   GC_free(arg);
+   result[0] = 3;
+   return result;
 }
 \end{lstlisting}
 
@@ -534,7 +641,7 @@ This add quite some code compared to the simple :
 
 \begin{lstlisting}
 int* f(int* arg) {
-   arg[0] = 0;
+   arg[0] = 3;
    return arg;
 }
 \end{lstlisting}
@@ -544,28 +651,30 @@ int* f(int* arg) {
 
 \subsection{Using a different data structure}
 
-PVS uses arrays in a very particular way, we might then represent them with an other structure than just only a C array.
-For example :
+The Lisp code generated by PVS and used for example by the ground evaluator to compute PVS expressions represents PVS arrays with a more complex data structure than a simple array. It basically consists in an array and a replacement list. Every time an update on \cl{(A, l)} is performed, the result is a pointer to the same array \cl{A} and a replacement list with an extra term: \cl{(A, (0:=0) :: l)}. When the length of the list becomes too big, we create a new array \cl{A'} by applying the replacement terms to a copy of \cl{A} and we return \cl{(A', nil)}.\\
 
+We could represent C data structure with a similar C structure. For example :
 \begin{lstlisting}
 struct r_list {
    int key;
    int value;
-   r_list tl;
+   r_list* tl;
 };
 struct array_int {
    int *data;
-   r_list replacement_list;
+   r_list* replacement_list;
 };
 \end{lstlisting}
 
-Each structure represent the array \cl{data} with the modifications contained in the linked list \cl{r\_list\_int}
+Each structure represent the array \cl{data} with the modifications contained in the linked list \cl{r\_list\_int}.\\
 
-Problems : Just as the previous solution :
-- add some extra code
-- add some extra computation (runtime tests, reading the replacement list)
-- require to create as many structures and associated functions as there are range types fo the manipulated arrays
-- Very dependent on the GC
+As in the previous solution, we have the following issues:
+\begin{itemize}
+\item This adds some extra code
+\item This adds some extra computation. We need runtime tests for updates, and access to an element not requires reading the whole replacement list.
+\item This relies on lot on the GC.
+%\item This requires to create as many structures and associated functions as there are range types for the manipulated arrays.
+\end{itemize}
 
 
 \subsection{Flow analysis on the PVS code}
