@@ -1,0 +1,18 @@
+\subsection{Overview of ROS functioning}
+
+The aim here is not to give a complete description of ROS (the interested reader could refer to \cite{O'Kane201310}). However, a few notions about ROS abstraction could be needed to understand following sections.
+
+The main purpose of ROS is to provide a framework for distributed computing. Rather than writing one complex program that runs the whole robot, designers prefer writing several simpler programs in charge of a specific task: 
+one program that uses sensors to scan the environment, one responsible to interact with the operator, another one controlling the wheels~\dots
+
+Each of these programs is represented by a ROS \textit{node} that can send messages to other nodes.
+\textit{Topics} are declared to group messages with the same function, and each node can be publisher or subscriber to one or more topics. 
+The ROS master gives information to publishers (IP addresses, shared buffers~\dots), so when publishing a message on a topic, they can send messages to all subscribers to this topic.
+Messages received by a subscriber are stored in a queue until they are computed. If the queue is full when a new message is received, the oldest message is thrown away. 
+
+
+
+\subsection{Modeling assumptions}\label{ROSarch} 
+
+To avoid jamming, we impose to have at most one publisher per topic\footnote{no publisher on a topic generates a warning, but is considered non-critical}, secured in HACMS by message authentication and firewall rules.
+For simplification purpose, we assume in this report that there is only one subscriber on each topic. This assumption does not lead to a loss of generality: a topic with $n$ subscribers could be seen as $n$ topics with one subscriber.

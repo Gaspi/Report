@@ -1,0 +1,37 @@
+There exist proved obstacle avoidance procedures based on a \emph{dynamic window} algorithm (see, e.g. \cite{Mitsch-RSS-13}).
+Among reachable speeds from the current state within some small delay (the \emph{dynamic window}), the system choses one that is both optimized in the sense of an objective function, and allows the vehicle to stop before hitting an obstacle.
+In this section, we apply this strategy to our system and we prove that it effectively allows to stop soon enough.
+
+\subsection{Objectives}
+
+We consider the worst possible case that the vehicle runs in straight line directly directed to a fixed obstacle. We assume a sensor gives distance to the obstacle and vehicle speed up to a certain accuracy.
+When the measured distance is too low, the controller sends an \emph{emergency stop} command that should bring the vehicle to full stop without hitting the obstacle.
+
+The mechanical properties of the system give a maximum acceleration $A$ and a braking power $b$; such that $-b \leq \dot v \leq A$ and, while the brakes are used, $\dot v = -b$ or $v = 0 \wedge \dot v = 0$.
+Let $\varepsilon$ be an upper bound for the control loop time interval and $D$ a minimal distance we want to keep from the obstacle.
+Then, as said in \cite{Mitsch-RSS-13}, for a velocity $v$, a distance less than $\frac {v^2} {2b} + \left(\frac A b + 1 \right) \left( \frac A 2 \varepsilon^2 + \varepsilon.v\right) + D$ should cause the vehicle to brake.
+
+Like in previous section, we use $\varepsilon = MA(Input) + MA(Output) + MaxT(A)$.
+
+\subsection{Correctness proof}
+
+Because of the sensor accuracy $\epsilon_d$ on the distance and $\epsilon_v$ on the velocity, the controller sends the \emph{emergency stop} command as soon as the measured distance $d_m$ and velocity $v_m$ verify
+\[ d_m - \epsilon_d \leq \frac {(v_m + \epsilon_v)^2} {2b} + \left(\frac A b + 1 \right) \left( \frac A 2 \varepsilon^2 + \varepsilon.(v_m + \epsilon_v)\right) + D\]
+This way, if the actual distance is less than $\frac {v^2} {2b} + \left(\frac A b + 1 \right) \left( \frac A 2 \varepsilon^2 + \varepsilon.v\right) + D$, this command is sent even with sensor inaccuracy.
+
+If the latest message available to the actuator contains the \emph{emergency stop} flag, it activates the brakes. Otherwise, it keeps a standard behavior (keep the same speed, respond to operator commands~\dots).
+This allows for example to activate the brakes, and release them at the next step because the speed decreased, or because of different sensor errors (first, the distance was underestimated and the speed overestimated, then the contrary happened).
+
+\begin{thm}\Thmname{Obstacle avoidance}
+
+Assume at time $t$, the vehicle is in a safe situation: $d(t) \geq \frac {v(t)^2} {2b} + \left(\frac A b + 1 \right) \left( \frac A 2 \varepsilon^2 + \varepsilon.v(t)\right) + D$.
+Then the vehicle stops with a minimum distance to the obstacle: $\forall s, \, d(s) \geq D$
+\end{thm}
+
+\begin{proof}
+For simpler notation, let $\delta(v) = \frac {v(t)^2} {2b} + \left(\frac A b + 1 \right) \left( \frac A 2 \varepsilon^2 + \varepsilon.v(t)\right) + D$ and assume $d(s) < \delta(v(s))$ (the result is already proved otherwise). Let $l = lub(\{r \in [t, s], \, d(r) \geq \delta(v(r))\})$.
+
+We have $d(l) = \delta(v(l)) \geq D + \frac A 2 \varepsilon^2 + \varepsilon.v(l)$, which is the maximum distance the vehicle can travel during $\varepsilon$. Then, if $s \leq l + \varepsilon$, the result is also proved.
+Otherwise, with the same argument as in the proof of Theorem~\ref{control}, the brakes are always activated in $[l + \varepsilon, s]$. During this time, the vehicle travels at most (if the vehicle has not come to full stop yet) the distance needed to stop completely, which is 
+\[\frac {v(l + \varepsilon)^2} {2b} \leq \frac{(v(l) + A.\varepsilon)^2}{2b}\]
+\end{proof}

@@ -1,0 +1,88 @@
+\subsection{Overview of ROS functioning}
+
+The aim here is not to give a complete description of ROS (the interested reader could refer to ROS manuals, for example \cite{O'Kane201310}). However, a few notions about ROS abstraction could be needed to understand following sections.
+
+The main purpose of ROS is to provide a framework for distributed computing. Rather than writing one complex program that runs the whole robot, designers prefer writing several simpler programs (potentially running on different computers) in charge of a specific task: 
+one program that uses sensors to scan the environment, one responsible to interact with the operator, another one controlling the wheels and so on
+
+Each of these programs is represented by a ROS \textit{node} that can send messages to other nodes.
+\textit{Topics} are declared to group messages with the same function, and each node can be publisher or subscriber to one or more topics. 
+The ROS master gives information to publishers (for example IP addresses or location of shared buffers), so when publishing a message on a topic, they can send messages to all subscribers to this topic.
+Messages received by a subscriber are stored in a queue until they are computed. If the queue is full when a new message is received, the oldest message is thrown away. 
+
+
+
+\subsection{Modeling assumptions}\label{ROSarch} 
+
+\paragraph{Topic assumptions:}
+To avoid jamming, we require at most one publisher per topic\footnote{$ $ no publisher on a topic generates a warning, but is considered non-critical}; this is secured in HACMS by message authentication and firewall rules.
+For simplification purpose, we assume in this report that there is only one subscriber on each topic.
+This assumption does not lead to a loss of generality: a topic with $n$ subscribers could be seen as $n$ topics with one subscriber.
+Finally, we assume that the transmission delay for a given message is bounded.
+
+Then, a topic can be characterized by two nodes (the publisher and the subscriber), the maximum transmission delay and the queue size for the subscriber.
+
+
+\paragraph{Node assumptions:}
+Nodes are discrete simple tasks executed regularly.
+Each node is supposed to execute at a given frequency, but the actual rate may vary.
+The execution could be non-periodic, but we assume that the time between two consecutive steps (or pseudo-period) is inside some known interval $[minT, maxT]$ with $minT > 0$.
+The typical example is when the frequency is known with a certain drift $\rho$, and the actual instantaneous frequency is in $[(1-\rho).f, (1+\rho).f]$.
+
+We also do the simplifying assumption that the task at each step is executed instantaneously. 
+Actually, in the case of a node that is only a publisher (resp. subscriber)\footnote{$ $ for example a sensor (resp. actuator)}, the time of the execution event can be taken as the time when the node sends (resp. reads) the message, which are atomic operations.
+In the case of an intermediate node, that is both subscriber and publisher on different topics, the computing duration between these two operations could just be added to the delay of the published topic.
+
+Then a node can be characterized by the upper and lower bound for the pseudo-period between consecutive steps.
+
+
+\paragraph{Notations:}
+Events are described by functions from $\mathbb{N}$ (the system runs forever) to $\mathbb{R^+}$ that give the time when this event happens. For example, if $e$ is the function used to describe the executions of some node, $e(n)$ is the time when the nth execution occurs.
+
+\begin{defin}\Thmname{Node execution}
+
+Each node $N$ is defined by its minimal pseudo-period $minT(N)$ and maximal pseudo-period $maxT(N)$. 
+Then an execution of $N$ is any function $e$ such that
+\[ e(0) = 0 \quad \textrm{\emph{and}} \quad \forall n \in \mathbb{N}, \, 
+e(n) + minT(N) \leq e(n+1) \leq e(n) + maxT(N) \]
+\end{defin}
+
+The assumption $e(0) = 0$ could seem too strong because it implies all nodes start exactly at the same time (which is quite unrealistic). First, having a common origin simplifies inductions, that are widely used in proofs. 
+Second, we could prove that for any initial time shift $\Delta$, with an interval $[minT(N), maxT(N)]$ as small as desired, there exist executions for $N$ and $N'$ such that \mbox{$e(n) - e'(m) = \Delta$} for some $n$ and $m$.
+This means that our model can be generalized to allow a time shift by assuming nodes $N$ and $N'$ send their default value (which is supposed to lead to a safe behavior) before periodic step $n$ and $m$.
+An induction gives the result for more than 2 nodes:
+
+The two nodes $N$ and $N'$ can be grouped into a single node $\hat{N}$ with period a common multiple of admissible periods for $N$ and $N'$: $\hat e(k) = k.T = e(n+ka) - e(n) = e'(m+kb) - e'(m)$.
+Assume $N''$ has an initial time shift of $\Delta '$ with $N$. Apply previous result with $\hat N$ and $N''$ for a time shift of $\Delta ' - e(n)$: $e''(l) - \hat e(k) = \Delta ' - e(n)$. Then, $e''(l) - e(n+ka) = \Delta '$ and $e''(l) - e'(m+kb) = \Delta' - \Delta$ (initial time shift between $N'$ and $N''$).
+
+\begin{defin}\Thmname{Message reception}\label{reception}
+
+Let $T$ be a topic with a maximum transmission delay of $D$, and let $s$ be an execution of its publisher $S$ (associated to the event \emph{a message is sent}). 
+A reception of these messages is any function $r$ such that
+\[ \forall n \in \mathbb{N}, \, s(n) \leq r(n) \leq s(n) + D \quad 
+\textrm{\emph{and}$\quad r$ is injective} \]
+\end{defin}
+
+The hypothesis that $r$ is injective means that two different messages cannot be received exactly at the same time. This is linked to hardware limitations, and is important to represent the queue: if messages $m$ and $n$ are received exactly at the same time, which one comes before the other in the queue?   
+
+Note that this definition does not assume the channel conserves the order of messages. We could have $r(k) > r(k+1)$ and therefore, the message received just after message $n$ is not necessarily message $n+1$.
+However, we can define a function $next$ such that there is no message received between $r(n)$ and $r(next(n))$.
+Then the iterated function $Nth\_next$ is such that there is exactly $N-1$ messages received between $r(n)$ and $r(Nth\_next(N, n))$.
+This means $next(n)$ is the message received just after $n$ is, and $Nth\_next(N, n)$ is the N'th message received after $n$ is.
+
+\vbox{
+\begin{defin}\Thmname{Processed message}
+
+Let $T$ a topic with a subscribers queue size of $L$. Let $s$ and $c$ be an execution of its publisher and subscriber and $r$ be a reception of sent messages.
+
+By definition, we have $\big |\{k\, | \, r(n) \leq r(k) < r(Nth\_next(L, n))\} \big | = L$. Then, message $n$ is in the queue at time $t$ iff \footnote{$ $ Actually, depending on the implementation, the message could be removed from the queue during a computation, but before $r(Nth\_next(L, n))$.
+This does not affect the definition.}
+ \mbox{$r(n) \leq t < r(Nth\_next(L, n))$}
+ 
+A message $n$ is said to be \emph{processed} if and only if 
+\[ \exists k \in \mathbb{N}, \quad r(n) \leq c(k) < r(Nth\_next(L, n)) \]
+\end{defin}
+}
+
+The message is said to be \emph{lost} or \emph{dropped} otherwise
+

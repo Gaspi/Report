@@ -1,0 +1,138 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[left=2cm,right=2cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{multirow}
+
+\usepackage[english]{babel}
+\usepackage{cite}
+
+\usepackage[nottoc]{tocbibind}
+\usepackage{makeidx}
+\makeindex
+
+\usepackage{graphicx}
+\graphicspath{{Pictures/}} 
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+
+\newcommand{\cell}[1]{
+\begin{minipage}{5cm}
+\begin{center}
+\vspace{.15cm}
+$ \displaystyle #1 $
+\vspace{.15cm}
+\end{center}
+\end{minipage}
+}
+\input{thm_header}
+
+\begin{document}
+
+\thispagestyle{empty}
+\newgeometry{margin=2cm} % different margins for titlepage
+
+\hspace{-0.7cm}
+\begin{tabular}{lrr}
+\noindent \'ECOLE POLYTECHNIQUE & \multirow{3}{6cm}{} &\multirow{3}{5cm}{\includegraphics[height=2cm]{logo-ecole.eps}}\\
+Promotion 2011 & &\\
+LARRIEU Robin & & \\
+\end{tabular}
+
+\vspace{\stretch{1}}
+
+\begin{center}
+\Large{RAPPORT DE STAGE DE RECHERCHE \\}
+\vspace{1cm}
+\Huge{\textbf{High assurance cyber-physical system} \\}
+\vspace{1cm}
+\large{NON CONFIDENTIEL}
+\end{center}
+
+\vspace{\stretch{1.8}}
+
+\begin{tabular}{lcl}
+Option & : & Département d'informatique \\
+Champ de l'option & : & Informatique \\
+Directeur de l'option & : & Olivier Bournez \\
+Directeur de stage & : & Natarajan Shankar \\
+Dates du stage & : & 7 avril 2014 - 25 juillet 2014 \\
+Adresse de l'organisme & : & SRI International / Computer Science Laboratory\\
+& & 333 Ravenswood avenue, Menlo Park, CA 94025 \\
+& & United States \\   
+\end{tabular}
+\vspace{\stretch{0.2}}
+
+%\restoregeometry
+\newpage
+
+\newgeometry{left=3cm, right=3cm, top=4cm, bottom=2.5cm} % different margins for abstact + TOC
+
+
+% Abstract en Francais
+\renewcommand{\abstractname}{Résumé}
+\begin{abstract}
+Un système cyber-physique est un système distribué d'unités de calcul et d'entités physiques (moteurs, appareils de mesure~\dots). 
+Ces différents composants sont de petites parties plus simples et largement autonomes du programme complet, qui coopèrent dans un but commun (complexité par composition).
+Si un contr\^oleur peut très bien fonctionner de manière isolée, il prend tout son intérêt lorsqu'un appareil de mesure fournit régulièrement des valeurs d'entrée, et lorsqu'un mécanisme répond aux commandes pour agir sur l'environnement.
+
+Cette structure distribuée rend de tels systèmes particulièrement dépendants d'un protocole de communication fiable, d'autant plus dans le cas d'un système asynchrone.
+L'objet de ce rapport est de donner des garanties sur le système d'échange de message pour une certaine architecture de systèmes cyber-physiques. Ces propriétés sont ensuite utilisées pour prouver la correction de sous-systèmes simples comme une boucle de contr\^ole \emph{appareil de mesure -- contr\^oleur -- mécanisme}.
+Ces preuves ont été formellement vérifiées avec le \emph{Prototype Verification System (PVS)}.
+\end{abstract}
+
+
+\vspace{2cm}
+
+
+
+%Abstract en Anglais
+\renewcommand{\abstractname}{Abstract}
+\begin{abstract}
+A cyber-physical system is a distributed network of various physical (engines, sensors~\dots) and computational components.
+These components are small simpler stand-alone parts of the whole program, that cooperate to achieve the overall goal (complexity by composition).
+A controller may work fine while isolated, but it's when associated with a sensor (that provides regular inputs) and an actuator that useful tasks can be achieved.
+
+With such a distributed structure, these systems are particularly dependent on a reliable message exchange protocol, even more if the system is asynchronous. 
+In this report, we prove assurance properties for the messaging system on a specific architecture. Then we use these properties to establish correctness of simple sub-systems such as a control loop \emph{sensor -- controller -- actuator}.
+Our proofs have been mechanically verified using the \emph{Prototype Verification System (PVS)}.
+\end{abstract}
+
+
+\newpage
+ 
+\renewcommand{\contentsname}{Table of Contents \vspace{1cm}}
+\tableofcontents
+
+\restoregeometry % return to default margins
+\newpage
+
+\section{Introduction}
+\input{introduction}
+
+\section{Related work}
+\input{related}
+
+\section{The ROS architecture}
+\input{ROS_arch}
+
+\section{Low-level messaging system}\label{prop}
+\input{messages}
+
+\section{Assurance claim for the plant controller}
+\input{plant_controller}
+
+\section{Obstacle avoidance with dynamic window algorithm}
+\input{obstacle_avoidance}
+
+\section{Alternative strategy for obstacle avoidance}
+\input{obstacle_avoidance2}
+
+
+\bibliographystyle{plain}
+\bibliography{biblio}
+
+
+\end{document}

@@ -1,0 +1,28 @@
+\documentclass{article}
+
+\begin{document}
+$ $\\
+\texttt{
+thermostat: NODE \{ \\
+$\indent$ \dots \\
+$\indent$ PUBLISH \\
+$\indent\indent$ Heater\_on: boolean \\
+$\indent$ SUBSCRIBE \\
+$\indent\indent$ Temperature[2]: integer MAXLATENCY l1 \\
+$\indent\indent$ Thermostat\_on: boolean MAXLATENCY l2 \\
+$\indent\indent$ Set\_temperature: integer MAXLATENCY l3 \\
+$\indent$ \dots \\
+$\indent$ RATE 50 \\
+\}
+}\\
+
+$ $\\
+\texttt{
+Temperature: TOPIC \{\\
+$\indent$ TYPE integer\\
+$\indent$ RATE 50\\
+$\indent$ AUTHENTICATED YES\\
+\}\\
+}
+
+\end{document}

@@ -1,0 +1,1 @@
+In section 2, we give more details about the ROS architecture and the model used to represent it. In section 3, we prove low-level properties for the messaging system. In sections 4 and 5, we give assurance claims for simple end-to-end properties. Section 4 proves that a basic control loop maintains a state around a set value. Section 5 gives a model for obstacle avoidance.

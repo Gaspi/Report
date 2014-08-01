@@ -4,56 +4,31 @@
 \production{Expr}{
 \hlink{Number} \choice \hlink{Variable} \\[-0.1in] & \choice &
 \hlink{Function} \lit{(} \hlink{Variables} \lit{)} \\[-0.1in] & \choice &
-\hlink{Variable} \lit{.} \hlink{Id} \\[-0.1in] & \choice &
-\hlink{Variable} \lit{[} \hlink{Expr} \lit{]} }
+\hlink{Variable} \lit{[} \hlink{Variable} \lit{]} \\[-0.1in] & \choice &
+\lit{if (} \hlink{Variable} \lit{) \char'173 } \hlink{Expr} \lit{ \char'175 \ else \char'173 } \hlink{Expr} \lit{ \char'175 }  \\[-0.1in] & \choice &
+\hlink{Instruction} \lit{ ; } Expr }
 
-\production{Variable}{
-\lit{(} \hlink{Id} \lit{:} \hlink{Type} \lit{)} }
-
-\production{Type}{
-\lit{int} \choice \lit{unsigned long int} \\[-0.1in] & \choice &
- \lit{mpz\_t} \choice \lit{mpq\_t} \\[-0.1in] & \choice &
-\lit{array( } Type \lit{, } \hlink{Number} \lit{)} \\[-0.1in] & \choice &
-\lit{struct( } \hlink{Id} \lit{)}}
+\production{Variable}{\hlink{Id}}
 
 \production{Instruction}{
-\lit{if (} \hlink{Variable} \lit{) \char'173 }  \\[-0.1in] & &
-\lit{    } \hlink{Instructions} \\[-0.1in] & & 
-\lit{ \char'175  else \char'173 } \\[-0.1in] & &
-\lit{    } \hlink{Instructions} \\[-0.1in] & & 
-\lit{\char'175}  \\[-0.1in] & \choice &
-\hlink{MPZFunction} \lit{(} \hlink{Variable} \opt{ \lit{,} \hlink{Variables}} \lit{)} \\[-0.1in] & \choice &
-\lit{init\_array( } \hlink{Variable} \lit{, } \hlink{Instructions} \lit{, } \hlink{Expr} \lit{ )} \\[-0.1in] & \choice &
-\lit{init\_record( } \hlink{Variable} \lit{, } \hlink{Instructions} \lit{, } \hlink{Exprs} \lit{ )} \\[-0.1in] & \choice &
 \lit{set( } \hlink{Variable} \lit{, } \hlink{Expr} \lit{ )}  \\[-0.1in] & \choice &
-\lit{update( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{)}}
-
-\production{Function}{
-\lit{+}  \choice \lit{*} \choice ... \\[-0.1in] & \choice &
-\hlink{Id} }
-
-\production{MPZFunction}{
-\lit{mpz\_add} \choice \lit{mpz\_mul} \choice \lit{mpz\_mul\_ui} \choice ... }
-
-
+\lit{init\_array( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Expr} \lit{ )} \\[-0.1in] & \choice &
+\lit{update( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{)} \\[-0.1in] & \choice &
+\lit{destructive\_update( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{)}}
 
 \production{FunctionDecl}{
-\hlink{Id} \lit{( } \hlink{Variables} \lit{ ) : } \hlink{Type} \lit{ =}  \\ [-0.1in]
-& & \hlink{Instructions} \\ [-0.1in]
-& & \opt{ \lit{return } \hlink{Variable}} \lit{;}}
+\hlink{Id}  \reps{\lit{( } \hlink{Variable} \lit{ : } \hlink{Type} \lit{ )}}{} \lit{ : } \hlink{Type} \lit{ = } \hlink{Expr} }
 
-\production{StructDecl}{
-\lit{struct} \hlink{Id} \lit{ : } \hlink{Types}}
+\production{Program}{ \reps{\hlink{FunctionDecl}}{,} \hlink{Function} } 
 
+\production{Function}{
+\lit{+} \choice \lit{-} \choice \lit{*} \choice \lit{/} \choice \lit{\char'45} \\[-0.1in] & \choice &
+\lit{<} \choice \lit{<=} \choice \lit{>} \choice \lit{>=} \choice \lit{=} \\[-0.1in] & \choice &
+\lit{not} \choice \lit{and} \choice \lit{or} \choice \lit{iff} \\[-0.1in] & \choice &
+\hlink{Id} }
 
-
-\production{Types}{\opt{ \hlink{Type} \opt{ \lit{,} Types}}}
-
-\production{Exprs}{\opt{ \hlink{Expr} \opt{ \lit{,} Exprs}}}
-
-\production{Variables}{\opt{ \hlink{Variable} \opt{ \lit{,} Variables}}}
-
-\production{Instructions}{ \opt{\hlink{Instruction} \lit{;} \opt{Instructions}}}
+\production{Type}{
+\lit{int} \choice \lit{array( } Type \lit{, } \hlink{Number} \lit{)}}
 
 \end{bnf}
 

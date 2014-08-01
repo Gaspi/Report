@@ -11,11 +11,13 @@
 \usepackage[colorlinks]{hyperref}
 \usepackage{graphicx}
 
+
+\usepackage{includes/bussproofs}
+
 % --- CSL part
 \usepackage{natbib}
 \input{includes/pvstex}
 \usepackage{includes/makebnf}
-
 
 \usepackage[space]{grffile}
 
@@ -203,7 +205,7 @@ Typically, an expression $e$ is translated into a tuple of four elements $(t,n,i
 We first define a function $T$ to translate an expression $e$.
 $$ T(e) = ( \ T^t(e) \ , \ T^n(e) \ , \ T^i(e) \ , \ T^d(e) \ ) $$
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \begin{eqnarray*}
 T(\cl{2}) &= (& \cl{int}, "2", [], []) \\
 T(\cl{4294967296}) &= (& \cl{mpz\_t}, \ ? \ , \\
@@ -283,7 +285,7 @@ incr(x:below(10)):int = x+1
 \end{lstlisting}
 the \cl{x} expression, result of the function \cl{incr} can always be represented by an \cl{int} or \cl{unsigned long} in C but we choose here to represent it using a \cl{mpz\_t}.
 
-Auxiliary type system :
+Intermediate type system :
 C-type with a flag : mutable (meaning that the expression it describes only has one pointer pointing to it.
 
 \begin{lstlisting}
@@ -306,7 +308,7 @@ Here it uses the memory to assign res.
 
 
 
-Use an auxiliary language :
+Use an intermediate language :
 
 \begin{lstlisting}
 ( expr, C-type[mutable] )
@@ -338,7 +340,7 @@ short int, float, union, size_t // etc...
 
 Translation rules :
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \begin{tabular}{|l|l|}
 \hline
 \cl{subrange(a, b)} &
@@ -546,7 +548,7 @@ for (at least) two reasons:
 
 Instead we could flatten the expression \ref{fig:exampleGC}.
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \begin{lstlisting}
 void main() {
    GC_start();
@@ -796,7 +798,7 @@ f_d(int* A, int* B) {  // A and B are both flagged mutable and duplicated
 \begin{itemize}
 \item Create the two versions of a function
 \item Flag all arguments \bang in destructive version
-\item Perform several passes and move flags to make sure the properties Figure~\ref{fir:properties} are verified.
+\item Perform several passes and move flags to make sure the properties Figure~\ref{fig:properties} are verified.
 \item Modify the code if the flags allow it according to the rules defined in the Annex~\ref{Rules}.
 \item Redo the two previous steps until stabilization.
 \end{itemize}
@@ -998,7 +1000,7 @@ We use the GMP library which introduces the types \mpzt and \mpqt. These types a
 
 For example, a function returning a \mpzt should actually take a first \mpzt argument and set it to the return value. Its return type being \cl{void}.
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \cl{norm(x:int, y:int):int = x*x + y*y}
 \begin{lstlisting}
 void (mpz_t result, mpz_t x, mpz_t y) {
@@ -1089,7 +1091,7 @@ Correcting translator PVS to SMT-LIB
 \label{fig:PVSsyntax}
 \end{figure}
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \input{includes/PVS-CLOS}
 \caption{(Partial) CLOS representation of PVS syntax}
 \label{fig:PVS-CLOS}
@@ -1098,14 +1100,14 @@ Correcting translator PVS to SMT-LIB
 \newpage
 \section{PVS type system and CLOS representation}
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \input{includes/PVS-type}
 \caption{Fragment of the PVS type system}
 \label{fig:PVS-types}
 \end{figure}
 
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \input{includes/PVS-CLOS-type}
 \caption{(Partial) CLOS representation of PVS types}
 \label{fig:PVS-CLOS-types}
@@ -1113,17 +1115,97 @@ Correcting translator PVS to SMT-LIB
 
 
 \newpage
-\section{Target language and CLOS representation}
+\section{Intermediate language}
 
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \input{includes/aux-expr}
-\caption{Syntax of the auxiliary language}
-\label{fig:Csyntax}
+\caption{Syntax of the intermediate language}
+\label{fig:aux-syntax}
 \end{figure}
 
+Every expression is typed.\\
+
+Operational semantic :\\
+
+The \textbf{memory} space $M$ is the union of the \textbf{stack memory} which is the set $N$ of all variable names and the \textbf{heap memory} which is indexed by the infinite set $\N + i \N^*$. More precisely, $ai+b$ is the address of the $b$-th element of the array stored at the $a$-th row of memory.
+$$ M = N \cup \left( \N + i \N^* \right) $$
+The value space $V$ is the union of the \textbf{heap memory addresses} $i\N^*$ and the \textbf{integer values}, $\N$.
+$$ V = \N \cup i \N^* $$
+The state of the memory at a certain time in the execution of a program is described with a state function $s:M \rightarrow V$.\\
+
+We define the structural operational semantics of the intermediate language as follow. The metavariable conventions are that $x$, $y$ and $z$ range over variables, $X$ and $Y$ range over variables typed as arrays $n$ ranges over numbers, $p$ ranges over primitive function symbols, $f$ and $g$ range over defined function symbols, $a$, $b$, $c$, $d$, and $e$ range over expressions, $I$ and $J$ range over instructions.
+
+
+
+
+
+
+\begin{center}
+\begin{tabular}{cc}
+\begin{minipage}{5cm}
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$<n,s> \ \Longrightarrow \ n$}
+\end{prooftree}
+\end{minipage} &
+\begin{minipage}{5cm}
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$<x,s> \ \Longrightarrow \ s(x)$}
+\end{prooftree}
+\end{minipage}
+\end{tabular}
+\end{center}
+
+
+If $f$ is a function declared in a program, we call $f_i$ its arguments (variables) and $[f]$ its body (expression).
+\begin{prooftree}
+\AxiomC{$<f\cl{(} x_i \cl{)} , s >  \ \Longrightarrow \  < [f], \uplus_{i = 0}^{n-1} (f_i \mapsto s(x_i) )$}
+\UnaryInfC{$ <f\cl{(} x_i \cl{)} , s > \ \Longrightarrow \ v $}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$<y,s> \ \Longrightarrow \ n$}
+\UnaryInfC{$<x \cl{[} y \cl{]} , s> \ \Longrightarrow \ s( s(x) + n)$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$<x,s> \ \Longrightarrow \ n > 0$}
+\UnaryInfC{$<\cl{if } x \cl{ \char'173 \ } a \cl{ \char'175 \ else \char'173 \ } b \cl{ \char'175} , s> \ \Longrightarrow \ <a, s>$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$<I,s> \ \longrightarrow \ s'$}
+\UnaryInfC{$<I;e , s> \ \Longrightarrow \ <e, s'>$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$<e , s> \ \Longrightarrow \ v$}
+\UnaryInfC{$<\cl{set(} x \cl{, } e \cl{)} , s> \ \longrightarrow \ s \uplus (x \mapsto v)$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$\forall i \in \{0, ..., n-1\}, \ \ \ < e , s \uplus ( x \mapsto i) > \ \Longrightarrow \ v_i $}
+\UnaryInfC{$ <\cl{init\_array(} X \cl{, } x \cl{, } e \cl{)} , s > \ \longrightarrow \ s \uplus_{i = 0}^{n-1} ( s(X) + i \mapsto v_i) $}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$<\cl{update(} X \cl{, } Y \cl{, } x \cl{, } y \cl{)} , s> \ \longrightarrow \ s \uplus_{i \neq s(x)} ( s(X) + i \mapsto s(s(Y) + i) ) \uplus ( s(X) + s(x) \mapsto s(y))$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$ <\cl{destr\_update(} X \cl{, } x \cl{, } y \cl{)} , s> \ \longrightarrow \ s \uplus ( s(X) + s(x) \mapsto s(y)) $}
+\end{prooftree}
+
+
+
+
+
 \newpage
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \input{includes/C-expr}
 \caption{Syntax of the representation language (representation of a subset of the C language)}
 \label{fig:Csyntax}
@@ -1135,7 +1217,7 @@ Correcting translator PVS to SMT-LIB
 \label{Rules}
 
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
 \hline
              & \cl{A} \safe & \cl{A} not \safe \\ \hline
@@ -1166,7 +1248,7 @@ for(i ...) {
 
 
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
 \hline
              & \cl{A} \safe & \cl{A} not \safe \\ \hline
@@ -1187,7 +1269,7 @@ If \cl{B} is flagged \dupl then \cl{A} must be too.
 
 
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
 \hline
              & \cl{A} \safe & \cl{A} not \safe \\ \hline
@@ -1207,7 +1289,7 @@ f(A)
 \end{figure}
 
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
 \hline
              & \cl{A} \safe & \cl{A} not \safe \\ \hline
@@ -1236,14 +1318,14 @@ f(A)
 \section{Examples}
 
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \begin{tabular}{|p{5.2cm}|p{5.8cm}|p{6cm}|}
 \hline
 \begin{center}
 PVS code
 \end{center} &
 \begin{center}
-Auxiliary language code
+Intermediate language code
 \end{center} &
 \begin{center}
 C code generated
@@ -1324,14 +1406,14 @@ int* f_d(int* A) {
 \end{figure}
 
 
-\begin{figure}[h!]
+\begin{figure}[!ht]
 \begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
 \hline
 \begin{center}
 PVS code
 \end{center} &
 \begin{center}
-Auxiliary language code
+Intermediate language code
 \end{center} &
 \begin{center}
 C code generated

@@ -1,0 +1,10 @@
+@BOOK{O'Kane201310,
+  title = {A Gentle Introduction to ROS},
+  publisher = {CreateSpace Independent Publishing Platform},
+  year = {2013},
+  author = {Jason M. O'Kane},
+  month = {10},
+  isbn = {9781492143239},
+  totalpages = {162},
+  url = {http://www.cse.sc.edu/~jokane/agitr/}
+}

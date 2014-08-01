@@ -1,0 +1,68 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[left=2cm,right=2cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{multirow}
+
+\usepackage[english]{babel}
+\usepackage{cite}
+
+\usepackage{makeidx}
+\makeindex
+
+\usepackage{graphicx}
+\graphicspath{{Pictures/}} 
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\input{thm_header}
+
+
+\title{High assurance cyber-physical system}
+\date{}
+\author{}
+
+\begin{document}
+
+\newgeometry{left=3cm, right=3cm, top=4cm, bottom=2.5cm} % different margins for abstact + TOC
+\maketitle
+
+\begin{abstract}
+A cyber-physical system is a distributed network of various physical and computational components. This typically includes control loops of sensors, controllers and actuators, where the sensor measures a state and the actuator modifies the state to maintain it around a desired value. The controller sends commands to the actuator according to the inputs from the sensor and settings from a user.
+
+With such a distributed structure, these systems are particularly dependent on a reliable message exchange protocol, even more if the system is asynchronous. 
+In this report, we prove assurance properties for the messaging system on a specific architecture, and we use these properties to establish correctness of simple components like the previous control loop.
+ 
+\end{abstract}
+\newpage
+ 
+%\renewcommand{\contentsname}{Table of Contents \vspace{1cm}}
+\tableofcontents
+
+\restoregeometry % return to default margins
+\newpage
+
+\section{Introduction}
+\input{introduction}
+\input{intro_contents_paper}
+
+\section{The ROS architecture}
+\input{ROS_arch}
+
+\section{Low-level messaging system}
+\input{messages}
+
+
+\section{Assurance claim for the plant controller}
+\input{plant_controller}
+
+\section{Further work: obstacle avoidance}
+\input{obstacle_avoidance}
+
+
+\bibliographystyle{plain}
+\bibliography{biblio}
+
+
+\end{document}

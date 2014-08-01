@@ -1,0 +1,92 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[left=2cm,right=2cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{multirow}
+
+\usepackage[english]{babel}
+\usepackage{cite}
+
+\usepackage{makeidx}
+\makeindex
+
+\usepackage{graphicx}
+\graphicspath{{Pictures/}} 
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\input{thm_header}
+
+
+\title{High-Assurance Quasi-Synchronous Systems}
+\date{}
+\author{Robin Larrieu -- \'Ecole Polytechnique \\ Natarajan Shankar -- SRI International}
+
+\begin{document}
+
+%\newgeometry{left=3cm, right=3cm, top=4cm, bottom=2.5cm} % different margins for abstact + TOC
+\maketitle
+
+\begin{abstract}
+The design of a complex cyber-physical system is centered around one
+or more models of computation (MoCs).  These models define the
+semantic framework within which a network of sensors, controllers, and
+actuators operate and interact with each other.  In this paper, we
+examine the foundations of a quasi-synchronous model of computation
+Our version of the quasi-synchronous model is inspired by the Robot
+Operating System (ROS).  It consists of nodes that encapsulate
+computation and topic channels that are used for communicating between
+nodes.  The nodes execute with a fixed period with possible jitter due
+to local clock drift and scheduling uncertainties, but are not
+otherwise synchronized.  The channels are implemented through a
+mailbox semantics.  In each execution step, a node reads its incoming
+mailboxes, applies a next-step operation to update its local state,
+and writes to all its outgoing mailboxes.  The underlying transport
+mechanism implements the mailbox-to-mailbox data transfer with some
+bounded latency.  Messages can be lost if a mailbox is over-written
+before it is read.  We prove a number of basic theorems that are
+useful for designing robust high-assurance cyber-physical systems
+using this simple model of computation.  We show that depending on the
+relative rates of the sender and receiver, there is a bound on the
+number of consecutive messages that can be lost.  By increasing the
+mailbox queue size to a given bound, message loss can be eliminated.
+We demonstrate that there is a bounded latency between the time a
+message is sent and the time that it is processed, which in turn can
+be used to bound the end-to-end sense-control-actuate latency.  We
+illustrate how these theorems are useful in designing and verifying a
+correct thermostat-based heating system.  Our proofs have been
+mechanically verified using the Prototype Verification System (PVS). 
+\end{abstract}
+\newpage
+ 
+%\renewcommand{\contentsname}{Table of Contents \vspace{1cm}}
+\tableofcontents
+
+\restoregeometry % return to default margins
+\newpage
+
+\section{Introduction}
+\input{introduction}
+\input{intro_contents_paper}
+\newpage
+
+\section{The ROS architecture}
+\input{ROS_arch}
+
+\section{Low-level messaging system}
+\input{messages}
+
+
+\section{Assurance claim for the plant controller}
+\input{plant_controller}
+
+%\section{Further work: obstacle avoidance}
+%\input{obstacle_avoidance}
+
+
+\bibliographystyle{plain}
+\bibliography{biblio}
+
+
+\end{document}
