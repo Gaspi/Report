@@ -1181,6 +1181,17 @@ If $f$ is a function declared in a program, we call $f_i$ its arguments (variabl
 \end{prooftree}
 
 \begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$<\cl{set(} x \cl{, } I \cl{; } e \cl{)} , s> \ \longrightarrow \ <I \cl{; } \cl{set(} x \cl{, } e \cl{)}, s >$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$<\cl{set(} x \cl{, } \cl{if } y \cl{ \char'173 \ } a \cl{ \char'175 \ else \char'173 \ } b \cl{ \char'175 \ )} , s> \ \longrightarrow \
+< \cl{if } y \cl{ \char'173 \ set(} x \cl{ , } a \cl{)  \char'175 \ else \char'173 \ set(} x \cl{ , } b \cl{) \char'175} , s >$}
+\end{prooftree}
+
+\begin{prooftree}
 \AxiomC{$<e , s> \ \Longrightarrow \ v$}
 \UnaryInfC{$<\cl{set(} x \cl{, } e \cl{)} , s> \ \longrightarrow \ s \uplus (x \mapsto v)$}
 \end{prooftree}
@@ -1199,6 +1210,33 @@ If $f$ is a function declared in a program, we call $f_i$ its arguments (variabl
 \AxiomC{}
 \UnaryInfC{$ <\cl{destr\_update(} X \cl{, } x \cl{, } y \cl{)} , s> \ \longrightarrow \ s \uplus ( s(X) + s(x) \mapsto s(y)) $}
 \end{prooftree}
+
+
+
+We define the live variables of an expression :
+
+\begin{eqnarray*}
+LV\left( n      \right) & := & \emptyset \\
+LV\left( x      \right) & := & \{ x \} \\
+LV\left( X\cl{[}x\cl{]} \right) & := & \{ x \} \\
+LV\left( f(x_1 \cl{, } ... \cl{, } x_n) \right) & := & \{ x_i | 1 \leq i \leq n \} \\
+LV\left( \cl{if (} x \cl{) \char'173 \ } a \cl{ \char'175 \ else \char'173 \ } b \cl{ \char'175 }  \right) & := & \{ x \} \cup LV(a) \cup LV(b) \\
+LV\left( I \cl{; } e \right) & := & LV(I) \cup LV(e) \\
+LV\left( \cl{set(} x \cl{, } e \cl{)} \right) & := & LV(e) \\
+LV\left( \cl{init\_array(} X \cl{, } x \cl{, } e \cl{)} \right) & := & LV(e) - \{ x \} \\
+LV\left( \cl{update(} X \cl{, } Y \cl{, } x \cl{, } y \cl{)} \right) & := & \{ Y, x, y \} \\
+LV\left( \cl{destructive\_update(} X \cl{, } x \cl{, } y \cl{)} \right) & := & \{ x, y \}
+\end{eqnarray*}
+
+
+The translator from PVS to that intermediate language guarantees the following properties 
+\begin{itemize}
+\item All arguments passed to a function are \testbf{different} variables.
+\item The first argument of \cl{init\_array} or \cl{update} is always the first occurence of a variable typed as array. Variables typed as array first appear as the first argument of a \cl{init\_array} or \cl{update} instruction.
+\item Before the analysis, no \cl{destr\_update} are used.
+\end{itemize} 
+
+For the need of the analysis, we enrich the state function with a reference counter $c:V \rightarrow \N$.
 
 
 
