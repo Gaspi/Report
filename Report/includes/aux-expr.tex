@@ -3,32 +3,27 @@
 
 \production{Expr}{
 \hlink{Number} \choice \hlink{Variable} \\[-0.1in] & \choice &
-\hlink{Function} \lit{(} \hlink{Variables} \lit{)} \\[-0.1in] & \choice &
 \hlink{Variable} \lit{[} \hlink{Variable} \lit{]} \\[-0.1in] & \choice &
-\lit{if (} \hlink{Variable} \lit{) \char'173 } \hlink{Expr} \lit{ \char'175 \ else \char'173 } \hlink{Expr} \lit{ \char'175 }  \\[-0.1in] & \choice &
-\hlink{Instruction} \lit{ ; } Expr }
+\lit{if (} \hlink{Expr} \lit{) \char'173 } \hlink{Expr} \lit{ \char'175 \ else \char'173 } \hlink{Expr} \lit{ \char'175 }  \\[-0.1in] & \choice &
+\lit{array( } \hlink{Variables} \lit{ )} \\[-0.1in] & \choice &
+\hlink{Variable} \lit{[ (} \hlink{Variable} \lit{) := } \hlink{Variable} \lit{ ]} \\[-0.1in] & \choice &
+\hlink{Variable} \lit{[ (} \hlink{Variable} \lit{) <- } \hlink{Variable} \lit{ ]} \\[-0.1in] & \choice &
+\hlink{Function} \lit{(} \hlink{Variables} \lit{)} \\[-0.1in] & \choice &
+\lit{set( } \hlink{Variable} \lit{, } \hlink{Expr} \lit{ ); } Expr}
 
 \production{Variable}{\hlink{Id}}
 
-\production{Instruction}{
-\lit{set( } \hlink{Variable} \lit{, } \hlink{Expr} \lit{ )}  \\[-0.1in] & \choice &
-\lit{init\_array( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Expr} \lit{ )} \\[-0.1in] & \choice &
-\lit{update( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{)} \\[-0.1in] & \choice &
-\lit{destructive\_update( } \hlink{Variable} \lit{, } \hlink{Variable} \lit{, } \hlink{Variable} \lit{)}}
+\production{Function}{ \hlink{PrimOp} \choice \hlink{Id}}
 
-\production{FunctionDecl}{
-\hlink{Id}  \reps{\lit{( } \hlink{Variable} \lit{ : } \hlink{Type} \lit{ )}}{} \lit{ : } \hlink{Type} \lit{ = } \hlink{Expr} }
-
-\production{Program}{ \reps{\hlink{FunctionDecl}}{,} \hlink{Function} } 
-
-\production{Function}{
+\production{PrimOp}{
 \lit{+} \choice \lit{-} \choice \lit{*} \choice \lit{/} \choice \lit{\char'45} \\[-0.1in] & \choice &
 \lit{<} \choice \lit{<=} \choice \lit{>} \choice \lit{>=} \choice \lit{=} \\[-0.1in] & \choice &
-\lit{not} \choice \lit{and} \choice \lit{or} \choice \lit{iff} \\[-0.1in] & \choice &
-\hlink{Id} }
+\lit{not} \choice \lit{and} \choice \lit{or} \choice \lit{iff}}
 
-\production{Type}{
-\lit{int} \choice \lit{array( } Type \lit{, } \hlink{Number} \lit{)}}
+\production{FunctionDecl}{
+\hlink{Id}  \lit{( } \reps{\hlink{Variable}}{,} \lit{ )} \lit{ = } \hlink{Expr} }
+
+\production{Program}{ \reps{\hlink{FunctionDecl}}{,} \hlink{Expr} }
 
 \end{bnf}
 

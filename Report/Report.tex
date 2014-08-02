@@ -1124,94 +1124,105 @@ Correcting translator PVS to SMT-LIB
 \label{fig:aux-syntax}
 \end{figure}
 
-Every expression is typed.\\
+\subsection{Operational semantic}
 
-Operational semantic :\\
+A \textbf{value} is either an integer or a reference $ref(i)$. The metavariable $v$ ranges over the set $V$ of all values.\\
 
-The \textbf{memory} space $M$ is the union of the \textbf{stack memory} which is the set $N$ of all variable names and the \textbf{heap memory} which is indexed by the infinite set $\N + i \N^*$. More precisely, $ai+b$ is the address of the $b$-th element of the array stored at the $a$-th row of memory.
-$$ M = N \cup \left( \N + i \N^* \right) $$
-The value space $V$ is the union of the \textbf{heap memory addresses} $i\N^*$ and the \textbf{integer values}, $\N$.
-$$ V = \N \cup i \N^* $$
-The state of the memory at a certain time in the execution of a program is described with a state function $s:M \rightarrow V$.\\
+An \textbf{evaluation context} $E$ is an expression with an occurrence of a hole $[]$ and is of one of the forms
+\begin{enumerate}
+\item $\cl{set(} x \cl{, } [] \cl{); } e $
+\item $[]$
+\item $E1[E2]$, if E1 and E2 are evaluation contexts.
+\end{enumerate}
 
-We define the structural operational semantics of the intermediate language as follow. The metavariable conventions are that $x$, $y$ and $z$ range over variables, $X$ and $Y$ range over variables typed as arrays $n$ ranges over numbers, $p$ ranges over primitive function symbols, $f$ and $g$ range over defined function symbols, $a$, $b$, $c$, $d$, and $e$ range over expressions, $I$ and $J$ range over instructions.
+A redex is an expression of the following form
+\begin{enumerate}
+\item $x$
+\item $X[y]$
+\item $\cl{if (} x \cl{) \{} a \cl{\} else \{} b \cl{\}}$
+\item $\cl{array(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
+\item $X\cl{[(} x \cl{) := } y \cl{]}$
+\item $X\cl{[(} x \cl{) <- } y \cl{]}$
+\item $p\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
+\item $f\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
+\item $\cl{set(} x \cl{, } v \cl{); } e$
+\end{enumerate}
 
+We define the \textbf{stack state}, $s_1$, as a function ranging over the set $N$ of all variable names with values in $V$.\\
 
+The \textbf{heap state} function, $s_2$ is mapping references $ref(i)$ to arrays of values, $V*$.\\
 
+The \textbf{store} (or \textbf{state}) function, $s$, describing the state of the memory at a certain point in the execution is defined as the couple $(s_1, s_2)$.\\
 
+A program is list of function declarations followed by a closed expression. For each function with id $f$ declared before the evaluation of the expression, we call $f_i$ the arguments of this function (variables) and $[f]$ its body (expression).
 
+The metavariable conventions are that $x$ and $y$ range over variables, $X$ ranges over variables typed as arrays $n$ ranges over numbers, $p$ ranges over primitive function symbols, $f$ ranges over defined function symbols, $a$, $b$ and $e$ range over expressions. \\
 
-\begin{center}
-\begin{tabular}{cc}
-\begin{minipage}{5cm}
+A \textbf{reduction} transforms a pair consisting of a redex and a store. The reductions corresponding to the redexes above are
+
+\begin{itemize}
+\item $<x,s> \ \longrightarrow \ < s_1(x), s> $
+\item $<x \cl{[} y \cl{]} , s> \ \longrightarrow \ < s_2( s_1(x) )( s_1(y) ) , s >$
+
+\item $\left\lbrace \begin{array}{ll}
+\begin{minipage}{9cm}
 \begin{prooftree}
-\AxiomC{}
-\UnaryInfC{$<n,s> \ \Longrightarrow \ n$}
+\AxiomC{$<a, s> \ \longrightarrow \ <v, s'>$}
+\UnaryInfC{$\cl{if } x \cl{ \{ } a \cl{ \} else \{} b \cl{\}} , s> \ \longrightarrow \ <v, (s_1, s'_2) >$}
 \end{prooftree}
-\end{minipage} &
-\begin{minipage}{5cm}
+\end{minipage} & \text{if } s_1(x) = 0 \\
+\begin{minipage}{9cm}
 \begin{prooftree}
-\AxiomC{}
-\UnaryInfC{$<x,s> \ \Longrightarrow \ s(x)$}
+\AxiomC{$<b, s> \ \longrightarrow \ <v, s'>$}
+\UnaryInfC{$\cl{if } x \cl{ \{ } a \cl{ \} else \{} b \cl{\}} , s> \ \longrightarrow \ <v, (s_1, s'_2) >$}
+\end{prooftree}
+\end{minipage} & \text{otherwise}
+\end{array} \right. $
+\item $<\cl{array(}  x_0 \cl{, } ... \cl{, } x_{n-1} \cl{)} , s > \ \longrightarrow \ < ref(m), (s_1 , s_2 \uplus (ref(m) \mapsto (s_1(x_i))_{0 \leq i < n}) ) >$\\
+
+where $s_2(ref(m))$ was not defined (meaning that $ref(m)$ is a "fresh pointer").
+\item $< X \cl{[(} x \cl{) := } y \cl{]} , s> \ \longrightarrow \ < ref(m), (s_1, s_2') >$ where
+\begin{eqnarray*}
+s_2(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
+s'_2 &=& s_2 \uplus \left( ref(m) \mapsto s_2( s_1(X) ) \uplus \left( s_1(x) \mapsto s_1(y) \right) \right)
+\end{eqnarray*}
+\item $< X \cl{[(} x \cl{) <- } y \cl{]} , s> \ \longrightarrow \ < X, (s_1, s_2') >$ where
+\begin{eqnarray*}
+s'_2 &=& s_2 \uplus \left( s_1(X) \mapsto s_2( s_1(X) ) \uplus \left( s_1(x) \mapsto s_1(y) \right) \right)
+\end{eqnarray*}
+\item $< p\cl{(} x \cl{, } y \cl{)}, s> \ \longrightarrow \ < p( s_1(x) , s_1(y) ), s >$ for binary operators.
+\item $< p\cl{(} x \cl{)}, s> \ \longrightarrow \ < p( s_1(x) ), s >$ for the \cl{not} operator.
+\item \begin{minipage}{9cm}
+\begin{prooftree}
+\AxiomC{$<[f], (f_i \mapsto s_1(x_i), s_2)> \ \longrightarrow \ <v, (s'_1, s'_2) >$}
+\UnaryInfC{$<f\cl{(} x_1, ... , x_n \cl{)} , (s_1, s_2) > \ \longrightarrow \ <v, (s_1, s'_2)>$}
 \end{prooftree}
 \end{minipage}
-\end{tabular}
-\end{center}
+\item $<\cl{set(} x \cl{, } v \cl{); } e, s> \ \longrightarrow \ < e, (s_1 \uplus (x \mapsto v), s_2)> $
+\end{itemize}
 
-
-If $f$ is a function declared in a program, we call $f_i$ its arguments (variables) and $[f]$ its body (expression).
+An evaluation step operates on a pair $<e, s>$ consisting of a closed expression and a store, and is represented as $<e, s> \ \longrightarrow \ <e', s'>$. If $e$ can be decomposed as a $E[a]$ for an evaluation context $E$ and a redex $a$, then a step $<E[a], s> \ \longrightarrow \ <E[a'], s'>$. holds if $<a, s> \ \longrightarrow \ <a', s'>$
+This is represented by the following rule.
 \begin{prooftree}
-\AxiomC{$<f\cl{(} x_i \cl{)} , s >  \ \Longrightarrow \  < [f], \uplus_{i = 0}^{n-1} (f_i \mapsto s(x_i) )$}
-\UnaryInfC{$ <f\cl{(} x_i \cl{)} , s > \ \Longrightarrow \ v $}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{$<y,s> \ \Longrightarrow \ n$}
-\UnaryInfC{$<x \cl{[} y \cl{]} , s> \ \Longrightarrow \ s( s(x) + n)$}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{$<x,s> \ \Longrightarrow \ n > 0$}
-\UnaryInfC{$<\cl{if } x \cl{ \char'173 \ } a \cl{ \char'175 \ else \char'173 \ } b \cl{ \char'175} , s> \ \Longrightarrow \ <a, s>$}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{$<I,s> \ \longrightarrow \ s'$}
-\UnaryInfC{$<I;e , s> \ \Longrightarrow \ <e, s'>$}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{}
-\UnaryInfC{$<\cl{set(} x \cl{, } I \cl{; } e \cl{)} , s> \ \longrightarrow \ <I \cl{; } \cl{set(} x \cl{, } e \cl{)}, s >$}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{}
-\UnaryInfC{$<\cl{set(} x \cl{, } \cl{if } y \cl{ \char'173 \ } a \cl{ \char'175 \ else \char'173 \ } b \cl{ \char'175 \ )} , s> \ \longrightarrow \
-< \cl{if } y \cl{ \char'173 \ set(} x \cl{ , } a \cl{)  \char'175 \ else \char'173 \ set(} x \cl{ , } b \cl{) \char'175} , s >$}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{$<e , s> \ \Longrightarrow \ v$}
-\UnaryInfC{$<\cl{set(} x \cl{, } e \cl{)} , s> \ \longrightarrow \ s \uplus (x \mapsto v)$}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{$\forall i \in \{0, ..., n-1\}, \ \ \ < e , s \uplus ( x \mapsto i) > \ \Longrightarrow \ v_i $}
-\UnaryInfC{$ <\cl{init\_array(} X \cl{, } x \cl{, } e \cl{)} , s > \ \longrightarrow \ s \uplus_{i = 0}^{n-1} ( s(X) + i \mapsto v_i) $}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{}
-\UnaryInfC{$<\cl{update(} X \cl{, } Y \cl{, } x \cl{, } y \cl{)} , s> \ \longrightarrow \ s \uplus_{i \neq s(x)} ( s(X) + i \mapsto s(s(Y) + i) ) \uplus ( s(X) + s(x) \mapsto s(y))$}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{}
-\UnaryInfC{$ <\cl{destr\_update(} X \cl{, } x \cl{, } y \cl{)} , s> \ \longrightarrow \ s \uplus ( s(X) + s(x) \mapsto s(y)) $}
+\AxiomC{$<a, s> \ \longrightarrow \ <a', s'>$}
+\UnaryInfC{$<E[a], s> \ \longrightarrow \ <E[a'], s'>$}
 \end{prooftree}
 
 
+The reflexive-transitive closure of $\longrightarrow$  is represented $ \longrightarrow^*$.
+The computation of a program is defined as the evaluation of its expression on an empty store: $<e, ([]_1, []_2)>$ (with $[]_i$ empty functions).
+If $<e, ([]_1, []_2)> \longrightarrow^* <e', s'>$ then we can prove that $e' \in V$ and the result of the computation is then defined as $eval_{s'_2}(e')$ where $eval_s$ is defined as follow:
+\begin{eqnarray}
+eval_s : V &\longrightarrow & E \\
+n &\mapsto& n \in \N \\
+rem(k) &\mapsto& \left( eval_s(u_i) \right)_{0 \leq i \leq n} \text{ with } (u_i)_{0 \leq i < n} := s(rem(k))
+\end{eqnarray}
+
+Property :
+If $s_1(x) = ref(i)$ then $s_2$ is defined on $ref(i)$.
+
+
+\subsection{Live variables}
 
 We define the live variables of an expression :
 
@@ -1219,19 +1230,18 @@ We define the live variables of an expression :
 LV\left( n      \right) & := & \emptyset \\
 LV\left( x      \right) & := & \{ x \} \\
 LV\left( X\cl{[}x\cl{]} \right) & := & \{ x \} \\
-LV\left( f(x_1 \cl{, } ... \cl{, } x_n) \right) & := & \{ x_i | 1 \leq i \leq n \} \\
 LV\left( \cl{if (} x \cl{) \char'173 \ } a \cl{ \char'175 \ else \char'173 \ } b \cl{ \char'175 }  \right) & := & \{ x \} \cup LV(a) \cup LV(b) \\
-LV\left( I \cl{; } e \right) & := & LV(I) \cup LV(e) \\
-LV\left( \cl{set(} x \cl{, } e \cl{)} \right) & := & LV(e) \\
-LV\left( \cl{init\_array(} X \cl{, } x \cl{, } e \cl{)} \right) & := & LV(e) - \{ x \} \\
-LV\left( \cl{update(} X \cl{, } Y \cl{, } x \cl{, } y \cl{)} \right) & := & \{ Y, x, y \} \\
-LV\left( \cl{destructive\_update(} X \cl{, } x \cl{, } y \cl{)} \right) & := & \{ x, y \}
+LV\left( \cl{array(} x \cl{, } n \cl{, } e \cl{)} \right) & := & LV(e) - \{ x \} \\
+LV\left( X \cl{[(} x \cl{) := } y \cl{]} \right) & := & \{ X, x, y \} \\
+LV\left( X \cl{[(} x \cl{) <- } y \cl{]} \right) & := & \{ X, x, y \} \\
+LV\left( f(x_1 \cl{, } ... \cl{, } x_n) \right) & := & \{ x_i | 1 \leq i \leq n \} \\
+LV\left( \cl{set(} x \cl{, } a \cl{); } e \right) & := & LV(a) \cup \left( LV(e) - \{ x \} \right)
 \end{eqnarray*}
 
 
 The translator from PVS to that intermediate language guarantees the following properties 
 \begin{itemize}
-\item All arguments passed to a function are \testbf{different} variables.
+\item All arguments passed to a function are \textbf{different} variables.
 \item The first argument of \cl{init\_array} or \cl{update} is always the first occurence of a variable typed as array. Variables typed as array first appear as the first argument of a \cl{init\_array} or \cl{update} instruction.
 \item Before the analysis, no \cl{destr\_update} are used.
 \end{itemize} 
