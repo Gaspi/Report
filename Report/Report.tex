@@ -1140,7 +1140,7 @@ A redex is an expression of the following form
 \item $x$
 \item $X[y]$
 \item $\cl{if (} x \cl{) \{} a \cl{\} else \{} b \cl{\}}$
-\item $\cl{array(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
+\item $\cl{array(} x \cl{)}$
 \item $X\cl{[(} x \cl{) := } y \cl{]}$
 \item $X\cl{[(} x \cl{) <- } y \cl{]}$
 \item $p\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
@@ -1178,7 +1178,7 @@ A \textbf{reduction} transforms a pair consisting of a redex and a store. The re
 \end{prooftree}
 \end{minipage} & \text{otherwise}
 \end{array} \right. $
-\item $<\cl{array(}  x_0 \cl{, } ... \cl{, } x_{n-1} \cl{)} , s > \ \longrightarrow \ < ref(m), (s_1 , s_2 \uplus (ref(m) \mapsto (s_1(x_i))_{0 \leq i < n}) ) >$\\
+\item $<\cl{array(} x \cl{)} , s > \ \longrightarrow \ < ref(m), (s_1 , s_2 \uplus (ref(m) \mapsto ( s_1(x) )_{0 \leq i < n}) ) >$\\
 
 where $s_2(ref(m))$ was not defined (meaning that $ref(m)$ is a "fresh pointer").
 \item $< X \cl{[(} x \cl{) := } y \cl{]} , s> \ \longrightarrow \ < ref(m), (s_1, s_2') >$ where
