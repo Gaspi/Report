@@ -1,6 +1,5 @@
-\documentclass[12pt,a4paper,titlepage]{article}
+\documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
-% \usepackage[francais]{babel}
 
 \usepackage[left=1.5cm,right=2cm,top=2cm,bottom=2cm]{geometry}
 \usepackage{amsmath}
@@ -20,6 +19,7 @@
 \usepackage{includes/makebnf}
 
 \usepackage[space]{grffile}
+\usepackage{pdfpages}
 
 % --- Partie code
 \usepackage{listings}
@@ -55,8 +55,8 @@
 \newcommand{\Prob}{\mathbb{P}}
 %\newcommand{\P}{\mathbb{P}} % Si tu l'utilise beaucoup
 
-\newcommand{\mpzt}{\texttt{mpz\_t}}
-\newcommand{\mpqt}{\texttt{mpq\_t}}
+\newcommand{\mpzt}{ \texttt{ mpz\_t } }
+\newcommand{\mpqt}{ \texttt{ mpq\_t } }
 
 \newcommand{\mut}{  \textbf{ mutable } }
 \newcommand{\nmut}{ \textbf{ non-mutable } }
@@ -64,72 +64,36 @@
 \newcommand{\safe}{ \textbf{ safe } }
 \newcommand{\dupl}{ \textbf{ duplicated } }
 
+% evaluation context hole
+\newcommand{\econt}[1]{[#1]}
+% update context hole
+\newcommand{\ucont}[1]{\{#1\}}
 
-
-\title{
-\vspace{-3cm}
-\normalsize
-\begin{tabular}{p{15cm}}
-ÉCOLE POLYTECHNIQUE \\
-PROMOTION X2011 \\
-Férey Gaspard
-\end{tabular}
-\vspace{3cm}
-\begin{center}
-\includegraphics[height=3cm]{pictures/logo.png}
-\end{center}
-\vspace{1cm}
-\large
-\begin{center}
-RAPPORT DE STAGE D'OPTION SCIENTIFIQUE\\
-\vspace{1cm}
-{\Huge Titre}\\
-\vspace{1cm}
-NON CONFIDENTIEL
-\end{center}
-\vspace{3cm}
-\normalsize
-\begin{tabular}{p{6cm} p{10cm}}
-Option :                  & INFORMATIQUE \\
-Champ de l'option :       & Math-Informatique \\
-Directeur de l'option :   & Olivier Bournez \\
-Directeur de stage :      & Olivier Bournez \\
-Dates du stage :          & 7 avril - 22 aout 2014\\
-Nom et adresse de l'organisme :  & SRI International \\
-                          & Computer Science Laboratory (CSL) \\
-                          & 333 Ravenswood Avenue \\
-                          & Menlo Park, CA 94025-3493 \\
-                          & United States
-\end{tabular}
-}
 
 \begin{document}
 
-\maketitle
+\includepdf[pages={1}]{includes/frontpage/frontpage.pdf}
+
 
 \vspace{2.2in}
 \begin{abstract}
-SAT solvers can generate proofs that justify their final result.
-This report presents a verified program that checks if the generated proofs are valid. The checker is written and
-proved in PVS. In order to execute it, Lisp code is automatically generated. 
-We describe a trusted kernel called the Kernel of Truth. 
-Finally, we prove that it exists a valid kernel proof corresponding to any valid checker proof. 
-This demonstrates that the checker is a safe extension of the kernel.
+PVS (standing for Prototype Verification System), is an Open Source project developped by CSL at SRI International and aiming to be both a semi-automated theorem prover and a programming language.
 \end{abstract}
 
+\renewcommand{\abstractname}{Acknowledgements}
+\begin{abstract}
+I would like to thank my supervisor, Natarajan Shankar, for
+his help, explanations and suggestions as well as for the many enlightening discussions we had during this internship. I also thank Sam Owre for his explanations of the PVS API and Common Lisp in general, Robin Larrieu, from Polytechnique who shared an office and a lot of good ideas with me. I thank all of my teachers from  LIX who made this internship possible, with a special mention to Stéphane Graham-Lengrand and Benjamin Doerr who recommended me.
+Finally, I thank all the people at the CSL, for their welcome, the interesting discussions I had with them, and for creating an exciting and inspiring environment for work. 
+A special thank Lori Truitt for all the help she provided with administrative paperwork.
+\end{abstract}
+
+
+\newpage
 \tableofcontents
 \newpage
 
 \section{Introduction}
-
-Before starting, I would like to thank Dr. Natarajan Shankar for making this internship possible and for the many enlightning conversations we had.
-
-Sam Owre was
-
-giving me the chance to work on this project and for helping me
-throughout all my internship. I also had great help from Sam Owre and from Dr. Bruno Dutertre. \\
-
-
 
 
 \subsection{PVS Overview}
@@ -985,53 +949,304 @@ To prevent that, we also perform a GC check. An update is actually a test wether
 
 
 
+
+
+
+\newpage
+\section{Static analysis of the intermediate language}
+
+
+We describe here the static analysis of the intermediate language (which syntax is defined in Figure~\ref{fig:aux-syntax}) implemented in the translator.
+
+\begin{figure}[!ht]
+\input{includes/aux-expr}
+\caption{Syntax of the intermediate language}
+\label{fig:aux-syntax}
+\end{figure}
+
+We first define the semantics of the language using a small-steps operational semantics. Then we define a few operators on the language and exhibit some properties.
+Finally we describe an algorithm to replace non destructive updates with destructive updates under certain conditions and prove that there is a bisimulation between programs before and after applying this algorithm. This proves that the execution of the program is not disturbed by the replacements and thus the correctness of the algorithm.
+
+
+
+\subsection{Operational semantic}
+
+A \emph{value} is either an integer $n \in \N$ or a reference $ref(i) \in R$. The metavariable $v$ ranges over the set of all values: $V := \N \cup R$.\\
+
+An \emph{evaluation context} (sometimes simply called \emph{context}) $E$ is an expression with an occurrence of a hole $\econt{}$. A context  and is of one of the forms
+\begin{enumerate}
+\itemsep-0.2em
+\item $\econt{}$
+\item $\cl{set(} x \cl{, } \econt{} \cl{); } e $
+\item $\cl{pop(} \econt{} \cl{)}$
+\item $E1\econt{E2}$ \ \ , where E1 and E2 are evaluation contexts.
+\end{enumerate}
+
+A \emph{redex} is an expression of the following form
+\begin{enumerate}
+\itemsep-0.2em
+\item $x$
+\item $X[y]$
+\item $\cl{if (} x \cl{) } a \cl{ else } b $
+\item $\cl{array(} x \cl{)}$
+\item $X\cl{[(} x \cl{) := } y \cl{]}$
+\item $X\cl{[(} x \cl{) <- } y \cl{]}$
+\item $p\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
+\item $f\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
+\item $\cl{set(} x \cl{, } v \cl{); } e$
+\item $\cl{push; } e$
+\item $\cl{pop( } v \cl{)}$
+\end{enumerate}
+
+We define a \emph{local environment}, $s_i$, as a function ranging over the set $N$ of all variable names with values in $V$.\\
+The \emph{stack state}, $s$, is a serie of local environments: $s = (s_0, ... , s_n)$.\\
+We call $[]$ the empty function and if $s_i$ is a local environment ranging over the variables $U$, we write $s_i \uplus (x \mapsto v)$ the function ranging over $U \cup \{x\}$ mapping $x$ to $v$ and $y$ to $s_i(y)$ for $y \neq x$. For $s = (s_0, ... s_n)$ a stack state, we write $s \uplus (x \mapsto v) := \left( s_0 \uplus (x \mapsto v), s_1, ... , s_n \right)$. We also define $s(x)$ as $s_i(x)$ where $\forall j < i, s_j(x)$ is not defined.
+
+The \emph{heap state} function, $h$ is mapping references $ref(i)$ to arrays of values, $V*$.\\
+
+The \emph{store} (or \emph{state}) function, $S$, describing the state of the memory at a certain point in the execution is defined as the couple $(s, h)$.\\
+We define $S(x) := s(x)$ and $S(ref(i)) := h(ref(i))$.
+
+A program is list of function declarations followed by a closed expression. For each function with id $f$ declared before the evaluation of the expression, we call $f_i$ the arguments of this function (variables) and $[f]$ its body (expression).
+
+The metavariable conventions are that $x$ and $y$ range over variables, $X$ ranges over variables typed as arrays $n$ ranges over numbers, $p$ ranges over primitive function symbols, $f$ ranges over defined function symbols, $a$, $b$ and $e$ range over expressions. \\
+
+A \emph{reduction} transforms a pair consisting of a redex and a store. The reductions corresponding to the redexes above are
+
+\begin{enumerate}
+\itemsep-0.2em
+\item $<x,S> \ \longrightarrow \ < s(x), S> $
+\item $<x \cl{[} y \cl{]} , S> \ \longrightarrow \ < h( s(x) )( s(y) ) , S >$
+\item $
+\cl{if (} x \cl{) } a \cl{ else } b, S>  \ \longrightarrow \ 
+\left\lbrace \begin{array}{ll}
+< \cl{push; pop(}a\cl{)} , S> & \text{if } s(x) = 0 \\
+< \cl{push; pop(}b\cl{)} , S> & \text{otherwise}
+\end{array} \right. $
+\item $<\cl{array(} x \cl{)} , S > \ \longrightarrow \ < ref(m), (s , h \uplus (ref(m) \mapsto (0)_{0 \leq i < s(x)}) ) >$\\
+
+where $h(ref(m))$ was not defined (meaning that $ref(m)$ is a "fresh pointer").
+\item $< X \cl{[(} x \cl{) := } y \cl{]} , S> \ \longrightarrow \ < ref(m), (s, h') >$ where
+\begin{eqnarray*}
+h(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
+h' &=& h \uplus \left( ref(m) \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) \right) \right)
+\end{eqnarray*}
+\item $< X \cl{[(} x \cl{) <- } y \cl{]} , S> \ \longrightarrow \ < X, (s, h') >$ where
+\begin{eqnarray*}
+h' &=& h \uplus \left( s(X) \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) \right) \right)
+\end{eqnarray*}
+\item $< p\cl{(} x \cl{, } y \cl{)}, S> \ \longrightarrow \ < p( s(x) , s(y) ), S>$ for binary operators.
+\item $< p\cl{(} x \cl{)}, S> \ \longrightarrow \ < p( s(x) ), S >$ for the \cl{not} operator.
+\item $<f\cl{(} x_1, ... , x_n \cl{)} , S> \ \longrightarrow \ < \cl{push; pop( set(}f_1 \cl{, } x_1\cl{); } ... \cl{set(}f_n \cl{, } x_n \cl{); } [f] \cl{)}, S> $
+\item $<\cl{set(} x \cl{, } v \cl{); } e, S> \ \longrightarrow \ < e, (s \uplus (x \mapsto v), h)> $
+\item $<\cl{push; } e, ( (s_0, ... , s_n), h) >  \ \longrightarrow \ < e, ( ([], s_0, ... , s_n), h) >  $
+\item $<\cl{pop(} v \cl{)}, ( (s_0, ... , s_n), h) > \ \longrightarrow \ <v, ( (s_1, ... , s_n), h) > $
+\end{enumerate}
+
+An evaluation step operates on a pair $<e, S>$ consisting of a closed expression and a store, and is represented as $<e, S> \ \longrightarrow \ <e', S'>$. If $e$ can be decomposed as a $E\econt{a}$ for an evaluation context $E$ and a redex $a$, then a step $<E\econt{a}, S> \ \longrightarrow \ <E\econt{a'}, S'>$ holds if $<a, s> \ \longrightarrow \ <a', s'>$
+This is represented by the following rule.
+\begin{prooftree}
+\AxiomC{$<a, s> \ \longrightarrow \ <a', s'>$}
+\UnaryInfC{$<E\econt{a}, s> \ \longrightarrow \ <E\econt{a'}, s'>$}
+\end{prooftree}
+One of the greatest advantage of using evaluation contexts is that we define the semantics of this language using only this one small-step rule.\\
+
+The reflexive-transitive closure of $\longrightarrow$  is represented $ \longrightarrow^*$.
+The computation of a program is defined as the evaluation of its expression $<e, S_0>$ on an empty store: $S_0 := (([]), [])$.
+If $<e, S_0)> \longrightarrow^* <e', S'>$ then we can prove that $e' \in V$ and the result of the computation is then defined as $eval_{h'}(e')$ where $eval_h$ is defined as follow:
+$$ eval_h : \left|
+\begin{array}{ccl}
+V &\longrightarrow & E \\
+n &\mapsto& n \in \N \\
+rem(k) &\mapsto& \left( eval_h(u_i) \right)_{0 \leq i \leq n} \text{ with } (u_i)_{0 \leq i < n} := h(rem(k))
+\end{array}
+\right. $$
+
+\begin{theorem}
+For all $<e, S_0> \ \longrightarrow \ <e', (s,h)>$, $h$ is defined on $R \cap Im(s)$. All references pointed to by a variable is defined in the heap stack.
+\end{theorem}
+
+
+
+\subsection{Update context}
+
+We now define an \emph{update context} as an expression with a single occurence of a hole:
+\begin{enumerate}
+\itemsep-0.2em
+\item $\ucont{}$
+\item $\cl{set(} x \cl{, } U \cl{); } e $
+\item $\cl{set(} x \cl{, } a \cl{); } U $
+\item $ \cl{if (} x \cl{) } U \cl{ else } b $
+\item $ \cl{if (} x \cl{) } a \cl{ else } U $
+\end{enumerate}
+
+
+We define the live variables, $Lv$, of an expression as
+\begin{eqnarray*}
+Lv( n ) & := & \emptyset \\
+Lv( x ) & := & \{ x \} \\
+Lv( X\cl{[}x\cl{]} ) & := & \{ X, x \} \\
+Lv( \cl{if (} x \cl{) } a \cl{ else } b) & := & \{ x \} \cup Lv(a) \cup Lv(b) \\
+Lv( \cl{array(} x \cl{)} ) & := & \{ x \} \\
+Lv( X \cl{[(} x \cl{) := } y \cl{]} ) & := & \{ X, x, y \} \\
+Lv( X \cl{[(} x \cl{) <- } y \cl{]} ) & := & \{ X, x, y \} \\
+Lv( f(x_1 \cl{, } ... \cl{, } x_n) ) & := & \{ x_1, ... , x_n \} \\
+Lv( p(x_1 \cl{, } ... \cl{, } x_n) ) & := & \emptyset \\
+Lv( \cl{set(} x \cl{, } a \cl{); } e ) &:=& Lv(a) \cup \left( Lv(e) - \{ x \} \right)
+\end{eqnarray*}
+
+The live variables in a context are:
+\begin{eqnarray*}
+Lv(\ucont{} ) &:=& \emptyset \\
+Lv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Lv(U) \cup \left(Lv(e) - \{ x \} \right) \text{ where $U$ is an update context.} \\
+Lv( \cl{set(} x \cl{, } a \cl{); } U ) &:=& Lv(U) \\
+\cl{if (} x \cl{) } U \cl{ else } b &:=& Lv(U) \\
+\cl{if (} x \cl{) } a \cl{ else } U &:=& Lv(U) 
+\end{eqnarray*}
+
+
+We also define the live cells, $Lc$, in an expression for a given store.
+\begin{eqnarray*}
+Lc_0(S)(e) &:=& Lv(e) \\
+Lc_{k+1}(S)(e) &:=& R \cap (Lc_k(S)(e) \cup S( Lc_k(S)(e) ) ) \\
+Lc(S)(e) &:=& \lim_k Lc_k(S)(e) \subset R
+\end{eqnarray*}
+The live cells are the references that are accessible in a certain expression given a certain store $S$. All references that are not in this set do not have any influence on the evaluation of the expression.
+
+\begin{theorem}
+If $<e_1, (s_1, h_1)> \ \longrightarrow \ <e_2, (s_2, h_2)>$ then $<e_1, (s_1, h'_1)> \ \longrightarrow \ <e_2, (s_2, h'_2)>$ where $h'_i = h_i|_{Lc(S_1)(e_1)}$.
+\end{theorem}
+
+
+\subsection{Output variables}
+
+We define the \emph{output} variables, $Ov$, of an expression:
+\begin{eqnarray*}
+Ov( n ) & := & \emptyset \\
+Ov( x ) & := & \{ x \} \\
+Ov( X\cl{[}x\cl{]} ) & := & \{ X \} \\
+Ov( \cl{if (} x \cl{) } a \cl{ else } b ) & := & Ov(a) \cup Ov(b) \\
+Ov( \cl{array(} x \cl{)} ) & := & \emptyset \\
+Ov( X \cl{[(} x \cl{) := } y \cl{]} ) & := & \emptyset \\
+Ov( X \cl{[(} x \cl{) <- } y \cl{]} ) & := & \{ X \} \\
+Ov( f(x_1 \cl{, } ... \cl{, } x_n) ) & := & \{ x_i | f_i \in Ov([f]) \} \\
+Ov( p(x_1 \cl{, } ... \cl{, } x_n) ) & := & \emptyset \\
+Ov( \cl{set(} x \cl{, } a \cl{); } e ) &:=& Ov(e) - \{x\} \cup \left\lbrace \begin{array}{ll}
+Ov(a) & \text{ if $x \in Ov(e)$.} \\
+\emptyset & \text{ otherwise.}
+\end{array} \right.
+\end{eqnarray*}
+This is the set of all variables which may have their value "trapped" into the expression.
+
+\begin{theorem}
+$Ov(e) \subset Lv(e)$. The output variables of an expression are live in that expression.
+\end{theorem}
+\begin{proof}
+Simple induction proof on the expression form.
+\end{proof}
+
+
+We define the set $Dv(U)(z)$ of all variables that may contain a reference to $z$ in a certain context $U$:
+\begin{eqnarray*}
+Dv(\ucont{})(z) &:=& \{ z \} \\
+Dv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Dv(U) \\
+Dv( \cl{set(} x \cl{, } a \cl{); } U )(z) &:=& Dv(U)(z) \cup
+  \left\lbrace \begin{array}{ll}
+  \emptyset & \text{if } (Ov(a) \cup \{ x \}) \cap Dv(U)(z) = \emptyset \\
+  (Ov(a) \cup \{ x \}) & \text{ otherwise.}
+  \end{array} \right. \\
+Dv(\cl{if (} x \cl{) } U \cl{ else } b) &:=& Dv(U) \\
+Dv(\cl{if (} x \cl{) } a \cl{ else } U) &:=& Dv(U) 
+\end{eqnarray*}
+
+
+We modify $f\cl{(}f_1\cl{, } ... \cl{, } f_n\cl{) = } e$ to get $f^d$ by turning all safe updates into destructive updates.
+An update $U := X\cl{[(}x\cl{) := }y\cl{]}$ is safe if it appears in $e$ in a context $C$ ($e = C\ucont{U}$) such that
+$$ Dv(U)(X) \cap Lv(U) = \emptyset $$
+
+
+
+
+\newpage
+\subsection{Draft}
+
+The translator from PVS to that intermediate language guarantees the following properties 
+\begin{itemize}
+\item All arguments passed to a function are \emph{different} variables.
+\item Before the analysis, no destructive updates are used.
+\end{itemize} 
+
+For the need of the analysis, we enrich the state function with a reference counter $c:V \rightarrow \N$.
+
+
+\begin{theorem}
+If $<a, S>$ is \mut, and $<a, S> \ \longrightarrow <a', S'>$ then $<a', S'>$ is \mut.
+\end{theorem}
+
+
+
+
+
+
+
+
+
+
 \newpage
 \section{Conclusion}
 
 
 \subsection{Difficulties and successes}
 
+This project was a great challenge and an opportunity for me to conduct my own research on a subject I chose. The development of the working translator was also 
+
+
+\subsubsection{Working with new languages and tools}
+
+To be able to translate PVS, I had to fully understand not only the syntax and semantics of the PVS language but also the structure of the PVS API written in Common Lisp. This means I also had to learn Common Lisp which I decided then to use to write the translator mostly because it made the integration of the native PVS parser and typechecker easier. Finally I had to discover the C language which I only had a basic knowledge of.
+
 
 \subsubsection{Integrating the GMP library}
-In PVS, the \texttt{integer} represent the whole set $\Z$ of all relative numbers (and \texttt{rational} also describe $\Q$).
-To implement that in C, we need more than the finite types \cl{int}, \cl{long}, ...
+In PVS (and in other languages such as Common Lisp or Python), the \cl{integer} type represent the whole set $\Z$ of all relative numbers (and \cl{rational} also describe $\Q$).
+To implement that in C, we need more than the finite types \cl{int}, \cl{long}, etc.
 
-We use the GMP library which introduces the types \mpzt and \mpqt. These types are pointers (actually arrays) to structures and they had to be used with caution (allocation, freeing, ...).
+The translator uses the GMP library which introduces the types \mpzt and \mpqt. These types are pointers (technically arrays) to structures and they had to be used with caution (allocation, freeing, ...).
 
-For example, a function returning a \mpzt should actually take a first \mpzt argument and set it to the return value. Its return type being \cl{void}.
+For example (Figure~\ref{fig:exGMP}), a function returning a \mpzt should actually take a first \mpzt argument and set it to the return value. Its return type being \cl{void}.
 
 \begin{figure}[!ht]
 \cl{norm(x:int, y:int):int = x*x + y*y}
 \begin{lstlisting}
-void (mpz_t result, mpz_t x, mpz_t y) {
+void norm(mpz_t result, mpz_t x, mpz_t y) {
   mpz_t aux1;
   mpz_init(aux1);
   mpz_mul(aux1, x, x);
+  mpz_clear(x);
   mpz_t aux2;
   mpz_init(aux2);
   mpz_mul(aux2, y, y);
+  mpz_clear(y);
   mpz_add(result, aux1, aux2);
-  mpz_clear aux1;
-  mpz_clear aux2;
+  mpz_clear(aux1);
+  mpz_clear(aux2);
 }
 \end{lstlisting}
 \caption{Example of the GMP library use}
+\label{fig:exGMP}
 \end{figure}
 
-
-\subsubsection{Working with new languages and tools}
-I had to learn three languages PVS, C, Common Lisp.
 
 
 
 \subsection{What's left to be done ?}
 
-Use a C structure to represent a closure
+One of my biggest regret was not having the time to finish the translator and fully implement closures.
+Some work is already done in that direction. We use a C structure to represent a closure:
 \begin{lstlisting}
 struct r_list_int {
-   int (*body)(void* env, void* args);
-   void* env;
-   void* args;
+   int (*body)(void* env, void* args);  // body is a function pointer
+   void* env;                           // env contains the environment variables
+   void* args;                          // args will contain the arguments
 };
 \end{lstlisting}
 
@@ -1039,13 +1254,14 @@ struct r_list_int {
 
 \subsection{My stay at SRI}
 
-Besides the conception and implementation of the PVS to C compiler, my stay at SRI International was rich in ??? events.
+Besides the conception and implementation of the PVS to C compiler, my stay at SRI International was rich in interesting events.
 
-The first days of my stay were the occasion to discover PVS anc Coq as I started working on a translator Coq to PVS. With Robin, we also wrote as an exercise a basic linear algebra library.
+The first weeks of my stay were the occasion to discover PVS and Coq as I started working on a translator Coq to PVS. With Robin, we also wrote as an exercise a basic linear algebra library.
 
-I discovered Lisp the hard way while learning how the back end of PVS worked. I've wrote a Lisp parser to help me see clear in the huge code (classes definitions, inheritances and organization, function dependances, ...)
+I discovered Lisp the hard way while discovering the middle- and back-end of the PVS API. Among other excerises, I decided to write a Common Lisp parser to help me understand the huge architecture of the PVS API code (classes definitions, inheritances and organization, function dependances, ...)
 
-I also have had the chance to attend to the many interesting seminars SRI hosted every week.
+I also have had the chance to attend to the many interesting seminars SRI hosted every week. The "Crazy Ideas" seminar hosted every other week was a ...
+
 The SRI also organized a Summer School to which we were allowed to attend and which was very interesting.
 
 Shankar never hesitated to include us in many project
@@ -1115,8 +1331,7 @@ Correcting translator PVS to SMT-LIB
 
 
 \newpage
-\section{Intermediate language}
-
+\section{Intermediate languages}
 
 \begin{figure}[!ht]
 \input{includes/aux-expr}
@@ -1124,140 +1339,13 @@ Correcting translator PVS to SMT-LIB
 \label{fig:aux-syntax}
 \end{figure}
 
-\subsection{Operational semantic}
-
-A \textbf{value} is either an integer or a reference $ref(i)$. The metavariable $v$ ranges over the set $V$ of all values.\\
-
-An \textbf{evaluation context} $E$ is an expression with an occurrence of a hole $[]$ and is of one of the forms
-\begin{enumerate}
-\item $\cl{set(} x \cl{, } [] \cl{); } e $
-\item $[]$
-\item $E1[E2]$, if E1 and E2 are evaluation contexts.
-\end{enumerate}
-
-A redex is an expression of the following form
-\begin{enumerate}
-\item $x$
-\item $X[y]$
-\item $\cl{if (} x \cl{) \{} a \cl{\} else \{} b \cl{\}}$
-\item $\cl{array(} x \cl{)}$
-\item $X\cl{[(} x \cl{) := } y \cl{]}$
-\item $X\cl{[(} x \cl{) <- } y \cl{]}$
-\item $p\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
-\item $f\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
-\item $\cl{set(} x \cl{, } v \cl{); } e$
-\end{enumerate}
-
-We define the \textbf{stack state}, $s_1$, as a function ranging over the set $N$ of all variable names with values in $V$.\\
-
-The \textbf{heap state} function, $s_2$ is mapping references $ref(i)$ to arrays of values, $V*$.\\
-
-The \textbf{store} (or \textbf{state}) function, $s$, describing the state of the memory at a certain point in the execution is defined as the couple $(s_1, s_2)$.\\
-
-A program is list of function declarations followed by a closed expression. For each function with id $f$ declared before the evaluation of the expression, we call $f_i$ the arguments of this function (variables) and $[f]$ its body (expression).
-
-The metavariable conventions are that $x$ and $y$ range over variables, $X$ ranges over variables typed as arrays $n$ ranges over numbers, $p$ ranges over primitive function symbols, $f$ ranges over defined function symbols, $a$, $b$ and $e$ range over expressions. \\
-
-A \textbf{reduction} transforms a pair consisting of a redex and a store. The reductions corresponding to the redexes above are
-
-\begin{itemize}
-\item $<x,s> \ \longrightarrow \ < s_1(x), s> $
-\item $<x \cl{[} y \cl{]} , s> \ \longrightarrow \ < s_2( s_1(x) )( s_1(y) ) , s >$
-
-\item $\left\lbrace \begin{array}{ll}
-\begin{minipage}{9cm}
-\begin{prooftree}
-\AxiomC{$<a, s> \ \longrightarrow \ <v, s'>$}
-\UnaryInfC{$\cl{if } x \cl{ \{ } a \cl{ \} else \{} b \cl{\}} , s> \ \longrightarrow \ <v, (s_1, s'_2) >$}
-\end{prooftree}
-\end{minipage} & \text{if } s_1(x) = 0 \\
-\begin{minipage}{9cm}
-\begin{prooftree}
-\AxiomC{$<b, s> \ \longrightarrow \ <v, s'>$}
-\UnaryInfC{$\cl{if } x \cl{ \{ } a \cl{ \} else \{} b \cl{\}} , s> \ \longrightarrow \ <v, (s_1, s'_2) >$}
-\end{prooftree}
-\end{minipage} & \text{otherwise}
-\end{array} \right. $
-\item $<\cl{array(} x \cl{)} , s > \ \longrightarrow \ < ref(m), (s_1 , s_2 \uplus (ref(m) \mapsto ( s_1(x) )_{0 \leq i < n}) ) >$\\
-
-where $s_2(ref(m))$ was not defined (meaning that $ref(m)$ is a "fresh pointer").
-\item $< X \cl{[(} x \cl{) := } y \cl{]} , s> \ \longrightarrow \ < ref(m), (s_1, s_2') >$ where
-\begin{eqnarray*}
-s_2(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
-s'_2 &=& s_2 \uplus \left( ref(m) \mapsto s_2( s_1(X) ) \uplus \left( s_1(x) \mapsto s_1(y) \right) \right)
-\end{eqnarray*}
-\item $< X \cl{[(} x \cl{) <- } y \cl{]} , s> \ \longrightarrow \ < X, (s_1, s_2') >$ where
-\begin{eqnarray*}
-s'_2 &=& s_2 \uplus \left( s_1(X) \mapsto s_2( s_1(X) ) \uplus \left( s_1(x) \mapsto s_1(y) \right) \right)
-\end{eqnarray*}
-\item $< p\cl{(} x \cl{, } y \cl{)}, s> \ \longrightarrow \ < p( s_1(x) , s_1(y) ), s >$ for binary operators.
-\item $< p\cl{(} x \cl{)}, s> \ \longrightarrow \ < p( s_1(x) ), s >$ for the \cl{not} operator.
-\item \begin{minipage}{9cm}
-\begin{prooftree}
-\AxiomC{$<[f], (f_i \mapsto s_1(x_i), s_2)> \ \longrightarrow \ <v, (s'_1, s'_2) >$}
-\UnaryInfC{$<f\cl{(} x_1, ... , x_n \cl{)} , (s_1, s_2) > \ \longrightarrow \ <v, (s_1, s'_2)>$}
-\end{prooftree}
-\end{minipage}
-\item $<\cl{set(} x \cl{, } v \cl{); } e, s> \ \longrightarrow \ < e, (s_1 \uplus (x \mapsto v), s_2)> $
-\end{itemize}
-
-An evaluation step operates on a pair $<e, s>$ consisting of a closed expression and a store, and is represented as $<e, s> \ \longrightarrow \ <e', s'>$. If $e$ can be decomposed as a $E[a]$ for an evaluation context $E$ and a redex $a$, then a step $<E[a], s> \ \longrightarrow \ <E[a'], s'>$. holds if $<a, s> \ \longrightarrow \ <a', s'>$
-This is represented by the following rule.
-\begin{prooftree}
-\AxiomC{$<a, s> \ \longrightarrow \ <a', s'>$}
-\UnaryInfC{$<E[a], s> \ \longrightarrow \ <E[a'], s'>$}
-\end{prooftree}
-
-
-The reflexive-transitive closure of $\longrightarrow$  is represented $ \longrightarrow^*$.
-The computation of a program is defined as the evaluation of its expression on an empty store: $<e, ([]_1, []_2)>$ (with $[]_i$ empty functions).
-If $<e, ([]_1, []_2)> \longrightarrow^* <e', s'>$ then we can prove that $e' \in V$ and the result of the computation is then defined as $eval_{s'_2}(e')$ where $eval_s$ is defined as follow:
-\begin{eqnarray}
-eval_s : V &\longrightarrow & E \\
-n &\mapsto& n \in \N \\
-rem(k) &\mapsto& \left( eval_s(u_i) \right)_{0 \leq i \leq n} \text{ with } (u_i)_{0 \leq i < n} := s(rem(k))
-\end{eqnarray}
-
-Property :
-If $s_1(x) = ref(i)$ then $s_2$ is defined on $ref(i)$.
-
-
-\subsection{Live variables}
-
-We define the live variables of an expression :
-
-\begin{eqnarray*}
-LV\left( n      \right) & := & \emptyset \\
-LV\left( x      \right) & := & \{ x \} \\
-LV\left( X\cl{[}x\cl{]} \right) & := & \{ x \} \\
-LV\left( \cl{if (} x \cl{) \char'173 \ } a \cl{ \char'175 \ else \char'173 \ } b \cl{ \char'175 }  \right) & := & \{ x \} \cup LV(a) \cup LV(b) \\
-LV\left( \cl{array(} x \cl{, } n \cl{, } e \cl{)} \right) & := & LV(e) - \{ x \} \\
-LV\left( X \cl{[(} x \cl{) := } y \cl{]} \right) & := & \{ X, x, y \} \\
-LV\left( X \cl{[(} x \cl{) <- } y \cl{]} \right) & := & \{ X, x, y \} \\
-LV\left( f(x_1 \cl{, } ... \cl{, } x_n) \right) & := & \{ x_i | 1 \leq i \leq n \} \\
-LV\left( \cl{set(} x \cl{, } a \cl{); } e \right) & := & LV(a) \cup \left( LV(e) - \{ x \} \right)
-\end{eqnarray*}
-
-
-The translator from PVS to that intermediate language guarantees the following properties 
-\begin{itemize}
-\item All arguments passed to a function are \textbf{different} variables.
-\item The first argument of \cl{init\_array} or \cl{update} is always the first occurence of a variable typed as array. Variables typed as array first appear as the first argument of a \cl{init\_array} or \cl{update} instruction.
-\item Before the analysis, no \cl{destr\_update} are used.
-\end{itemize} 
-
-For the need of the analysis, we enrich the state function with a reference counter $c:V \rightarrow \N$.
-
-
-
-
-
 \newpage
 \begin{figure}[!ht]
 \input{includes/C-expr}
 \caption{Syntax of the representation language (representation of a subset of the C language)}
 \label{fig:Csyntax}
 \end{figure}
+
 
 
 \newpage
