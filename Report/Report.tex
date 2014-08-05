@@ -10,11 +10,19 @@
 \usepackage[colorlinks]{hyperref}
 \usepackage{graphicx}
 
+\usepackage[%
+backend=biber,
+style=alphabetic,
+backref=true,
+backrefstyle=all+,
+hyperref=true,
+]{biblatex}
+\addbibressource{allbib.bib}
 
 \usepackage{includes/bussproofs}
 
 % --- CSL part
-\usepackage{natbib}
+% \usepackage{natbib}
 \input{includes/pvstex}
 \usepackage{includes/makebnf}
 
@@ -131,18 +139,31 @@ The objective is, of course, to be able to translate the maximum of (if not all)
 
 
 
-\section{PVS syntax}
+\section{Translating PVS}
 
-\subsection{PVS Syntax}
+\subsection{Translation's architecture}
 
-In Figure~\ref{fig:PVSsyntax}, we describe the subset of PVS we translate to C.
+The translation from PVS to C follow five main steps:
+\begin{itemize}
+\item Typechecking: The PVS typechecker perform a type analysis on the PVS code to associate a PVS type to each expression. This might generates some proof obligations (TCC). The user of the translator has to make sure that the PVS code can be correctly typechecked and that all TCC can be proven.
 
-In Figure~\ref{fig:PVS-CLOS}, we describe the object system used to represent them in Common Lisp. Some classes and some slots in the classes are voluntarily ommitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
+\item Lexical and syntactic analysis: The PVS parser transforms PVS code into a CLOS internal representation. \\
+
+In Figure~\ref{fig:PVSsyntax}, we describe the syntax of the subset of PVS we are currently able to translate to C.
+In Figure~\ref{fig:PVS-CLOS}, we describe the Common Lisp Object System architecture used by PVS to represent them in Common Lisp. Some classes and some slots in the classes are voluntarily ommitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
+
+\item Translation: The translator flattens PVS expressions to generates an intermediate language which heavily relies on the use of intermediate variables to allow a simpler static analysis. The syntax of this language is described Figure~\ref{fig:aux-syntax}.
+
+\item Static analysis: The intermediate language is analyzed and stripped from some of its unnecessary copies and non destructive updates using flow analysis and an enriched type system. This analysis inspired from Shankar \cite{shankar02}  \cite{incollection-minimal} and Pavol's \citep{pavol} previous analysis of PVS is described with more detail in Section~\ref{staticanal}.
+
+Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i,d)$, where $t$ represents a C type used to describe the expression, $e$ is a simple expression, $i$ is a list of instructions to be executed prior to using $e$, the initialization of the expression. Finally $d$ is a list of instructions to be executed when $n$ isn't needed anymore, the destruction of $e$.
+
+\item Optimizations: Several simple analysis are performed, for instance to determine where to declare and free variables as well as the most adapted C types to use. The code generated from that step can be described by the syntax in Figure~\ref{fig:Csyntax}.
+
+\item Code generation: C code is generated (.c and .h files) and can be compiled using gcc and executed when linked with the garbage collector and the GMP library. The C syntax is described in \cite{huss2004c} and the GMP library reference can be found at \href{https://gmplib.org/manual/}{https://gmplib.org/manual/}.
+\end{itemize}
 
 
-
-
-\subsection{Translator architecture}
 
 Describe here the Lisp functions and data structures
 
@@ -153,23 +174,6 @@ Expected input
 Output objects
 
 Assertions that we (try to) maintain
-
-
-The translation from PVS to C follow five main steps:
-\begin{itemize}
-\item Typechecking: The PVS typechecker perform a type analysis on the PVS code to associate a PVS type to each expression. This might generates some proof obligations (TCC).
-\item Lexical and syntactic analysis: The PVS parser transforms PVS code into a CLOS internal representation.
-\item Translation: The translator flattens PVS expressions to generates an intermediate language which relies on important use of variables to allow a simple static analysis. The syntax of this language is described Figure~\ref{fig:aux-syntax}.
-
-\item Static analysis: The intermediate language is analyzed and stripped from some of its unnecessary copies and non destructive updates using flow analysis and an enriched type system. This analysis is described with more detail in Section~\ref{staticanal}.
-
-Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i,d)$, where $t$ represents a C type used to describe the expression, $e$ is a simple expression, $i$ is a list of instructions to be executed prior to using $e$, the initialization of the expression. Finally $d$ is a list of instructions to be executed when $n$ isn't needed anymore, the destruction of $e$.
-
-\item Optimizations: Several simple analysis are performed, for instance to determine where to declare and free variables as well as the most adapted C types to use. The code generated from that step can be described by the syntax in Figure~\ref{fig:Csyntax}.
-
-\item Code generation: C code is generated (.c and .h files) and can be compiled using gcc and executed when linked with the garbage collector and the GMP library. 
-\end{itemize}
-
 
 
 
@@ -230,9 +234,9 @@ application "f(e1, e2)"
 
 
 
-\section{PVS type system}
+\subsection{PVS type system}
 
-\subsection{PVS Types}
+\subsubsection{PVS Types}
 A PVS theory can be typechecked using the emacs interface \cl{M-x typecheck} or calling the Lisp function \cl{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
 Here we describe how PVS types are represented in 
@@ -242,7 +246,7 @@ Figure~\ref{fig:PVS-types} \\
 Figure~\ref{fig:PVS-CLOS-types}
 
 
-\subsection{Translating types}
+\subsubsection{Translating types}
 PVS types:\\
 boolean, number, number\_field, real, 
 rational, integer, $A \rightarrow B$, restricted types
@@ -371,10 +375,6 @@ What's missing ?
 \subsection{Using a representation of the C language}
 
 Figure~\ref{fig:Csyntax}
-
-
-
-
 
 
 
@@ -969,7 +969,6 @@ We describe here the static analysis of the intermediate language (which syntax 
 \begin{figure}[!ht]
 \input{includes/aux-expr}
 \caption{Syntax of the intermediate language}
-\label{fig:aux-syntax}
 \end{figure}
 
 We first define the semantics of the language using a small-steps operational semantics. Then we define a few operators on the language and exhibit some properties.
@@ -1057,7 +1056,13 @@ This is represented by the following rule.
 \AxiomC{$<a, s> \ \longrightarrow \ <a', s'>$}
 \UnaryInfC{$<E\econt{a}, s> \ \longrightarrow \ <E\econt{a'}, s'>$}
 \end{prooftree}
-One of the greatest advantage of using evaluation contexts is that we define the semantics of this language using only this one small-step rule.\\
+One of the greatest advantage of using evaluation contexts is that we define the semantics of this language using only two small-step rules. The evaluation context rule and the transitivity rule:
+\begin{prooftree}
+\AxiomC{$<a, s> \ \longrightarrow \ <b, s'>$}
+\AxiomC{$<b, s'> \ \longrightarrow \ <c, s''>$}
+\BinaryInfC{$<a, s> \ \longrightarrow \ <c, s''>$}
+\end{prooftree}
+The other advantage of using context is to be able to place critical expressions like updates into a context where the evaluation order is well defined and we can identify a few particular sets of variables.
 
 The reflexive-transitive closure of $\longrightarrow$  is represented $ \longrightarrow^*$.
 The computation of a program is defined as the evaluation of its expression $<e, S_0>$ on an empty store: $S_0 := (([]), [])$.
@@ -1103,7 +1108,7 @@ Lv( p(x_1 \cl{, } ... \cl{, } x_n) ) & := & \emptyset \\
 Lv( \cl{set(} x \cl{, } a \cl{); } e ) &:=& Lv(a) \cup \left( Lv(e) - \{ x \} \right)
 \end{eqnarray*}
 
-The live variables in a context are:
+The variables live in a context are defined as:
 \begin{eqnarray*}
 Lv(\ucont{} ) &:=& \emptyset \\
 Lv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Lv(U) \cup \left(Lv(e) - \{ x \} \right) \text{ where $U$ is an update context.} \\
@@ -1113,17 +1118,21 @@ Lv( \cl{set(} x \cl{, } a \cl{); } U ) &:=& Lv(U) \\
 \end{eqnarray*}
 
 
-We also define the live cells, $Lc$, in an expression for a given store.
+We also define the live cells, $Lc$, in an expression or update $e$ for a given store $S$.
 \begin{eqnarray*}
 Lc_0(S)(e) &:=& Lv(e) \\
 Lc_{k+1}(S)(e) &:=& R \cap (Lc_k(S)(e) \cup S( Lc_k(S)(e) ) ) \\
 Lc(S)(e) &:=& \lim_k Lc_k(S)(e) \subset R
 \end{eqnarray*}
 The live cells are the references that are accessible in a certain expression given a certain store $S$. All references that are not in this set do not have any influence on the evaluation of the expression.
+It correspond to the references already created in the heap store that can still be accessed in the context or expression.
 
 \begin{theorem}
 If $<e_1, (s_1, h_1)> \ \longrightarrow \ <e_2, (s_2, h_2)>$ then $<e_1, (s_1, h'_1)> \ \longrightarrow \ <e_2, (s_2, h'_2)>$ where $h'_i = h_i|_{Lc(S_1)(e_1)}$.
 \end{theorem}
+\begin{proof}
+It can easily be verified for every redex. When $a = U\ucont{b}$, we have $Lc(a) = Lc(U) \cup Lc(b)$ and the inductive step is proved .
+\end{proof}
 
 
 \subsection{Output variables}
@@ -1167,10 +1176,46 @@ Dv(\cl{if (} x \cl{) } U \cl{ else } b) &:=& Dv(U) \\
 Dv(\cl{if (} x \cl{) } a \cl{ else } U) &:=& Dv(U) 
 \end{eqnarray*}
 
+\subsubsection{Analysis}
 
-We modify $f\cl{(}f_1\cl{, } ... \cl{, } f_n\cl{) = } e$ to get $f^d$ by turning all safe updates into destructive updates.
-An update $U := X\cl{[(}x\cl{) := }y\cl{]}$ is safe if it appears in $e$ in a context $C$ ($e = C\ucont{U}$) such that
+We consider here that $f$ is a function which declaration doesn't contain any destructive update. The naive translation from PVS to this language only perform non destructive updates.
+
+Intuitevely, if a function $f\cl{(}f_1\cl{, } ... \cl{, } f_n\cl{) = } e$ contains a non destructive update in a context $e = U\ucont{X\cl{[(}x\cl{) := }y\cl{]}}$. That update can be turned into a destructive update if the variables that may be aliased to $X$ are not live in the context.
 $$ Dv(U)(X) \cap Lv(U) = \emptyset $$
+This way all this variables that may point to $X$ are never used after the update. Since they are the only variables whose evaluation is modified by making hte update destructive, we can say that this is a safe transformation.\\
+
+The problem is that some of these variables possibly pointing to $X$ might be included in the set of arguments of $f$: $\{f_1, ... , f_n\}$. And we can't assume anything about these variables since we don't have any information regarding the context in which the function $f$ is called.\\
+
+We define two functions. A non destructive version $f$ with body $e_{nd}$ and a destructive version $f^d$ with body $e_d$.
+Both new definitions only differ from the original body $e$ of $f$ in some substitution: non destructive updates in $e$ may be destructive in $e_{nd}$ and $e_d$ and some function calls to a function $g$ may become function calls to $g^d$ with the same arguments in $e_d$ and $e_{nd}$.\\
+
+These functions use two different strategies:
+\begin{itemize}
+\item The second consists in allowing destructive updates of variables that could be aliased arguments. We however keep track of these arguments and only call this function when we are sure the arguments are safe in the context of the call. We define the $BA$ function on function declarations:
+\begin{eqnarray*}
+BA(f) &=& \bigcup_{e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]} }}  Dv(U)(X) \\
+& \cup & \bigcup_{e_d = U\ucont{g\cl{(} x_1\cl{,} ... \cl{,} x_n \cl{)}}} Dv(U)( \{ x_i | g_i \in BA(g) \})
+\end{eqnarray*}
+The yields the definition $e_d$ of $f^d$ verifying the following properties:
+\begin{itemize}
+\item $\forall U, X, x, y$,
+$$ e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \ \Longrightarrow \ \  Dv(U)(X) \cap Lv(U) = \emptyset $$
+\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$,
+$$ e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}} \ \ \Longrightarrow \ \  Dv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap Lv(U) = \emptyset $$
+\end{itemize}
+\item The first consists in forbidding the use of destructive updates which argument may be pointing to by arguments. This is equivalent to saying that all arguments of non destructive functions are live in all contexts (or just in the empty context).
+This yields the new definition $e_{nd}$ of $f$ verifying hte following properties:
+\begin{itemize}
+\item $\forall U, X, x, y$,
+$$ e_{nd} = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \ \Longrightarrow \ \  Dv(U)(X) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
+\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$,
+$$ e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}} \ \ \Longrightarrow \ \  Dv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
+\end{itemize}
+\end{itemize}
+\begin{theorem}
+For all non destructive version of a function $f$, $ BA(f) = \emptyset$.
+\end{theorem}
+
 
 
 
@@ -1191,6 +1236,10 @@ For the need of the analysis, we enrich the state function with a reference coun
 If $<a, S>$ is \mut, and $<a, S> \ \longrightarrow <a', S'>$ then $<a', S'>$ is \mut.
 \end{theorem}
 
+
+A function $f$ is called \bang when
+$$ Ov([f]) \cap \{ f_1, ... , f_n \} = \emptyset $$
+This basically means that the output variables of any call to that function is the empty set.
 
 
 
@@ -1297,12 +1346,12 @@ Correcting translator PVS to SMT-LIB
 
 
 
-\bibliographystyle{plain}
-\bibliography{allbib}
+% \bibliographystyle{plain}
+% \bibliography{allbib}
 
 
 
-
+\printbibliography
 
 \appendix
 
