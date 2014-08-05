@@ -10,15 +10,6 @@
 \usepackage[colorlinks]{hyperref}
 \usepackage{graphicx}
 
-\usepackage[%
-backend=biber,
-style=alphabetic,
-backref=true,
-backrefstyle=all+,
-hyperref=true,
-]{biblatex}
-\addbibressource{allbib.bib}
-
 \usepackage{includes/bussproofs}
 
 % --- CSL part
@@ -28,6 +19,19 @@ hyperref=true,
 
 \usepackage[space]{grffile}
 \usepackage{pdfpages}
+
+\usepackage[%
+backend=biber,
+style=alphabetic,
+backref=true,
+backrefstyle=all+,
+hyperref=true,
+]{biblatex}
+
+\bibliography{allbib}
+
+
+
 
 % --- Partie code
 \usepackage{listings}
@@ -82,12 +86,14 @@ hyperref=true,
 
 \includepdf[pages={1}]{includes/frontpage/frontpage.pdf}
 
-
-\vspace{2.2in}
+\newpage
+\
+\vspace{2in}
 \begin{abstract}
-PVS (standing for Prototype Verification System), is an Open Source project developped by CSL at SRI International and aiming to be both a semi-automated theorem prover and a programming language.
+PVS (standing for Prototype Verification System), is an Open Source project developped by CSL at SRI International and aiming to be both a semi-automated theorem prover and a programming language. 
 \end{abstract}
 
+\vspace{1in}
 \renewcommand{\abstractname}{Acknowledgements}
 \begin{abstract}
 I would like to thank my supervisor, Natarajan Shankar, for his help, explanations and suggestions as well as for the many enlightening discussions we had during this internship. I also thank Sam Owre for his explanations of the PVS API and Common Lisp in general, Robin Larrieu, from Polytechnique who shared an office and a lot of good ideas with me. I thank all of my teachers from  LIX who made this internship possible, with a special mention to Stéphane Graham-Lengrand and Benjamin Doerr who recommended me.
@@ -118,23 +124,19 @@ can be applied to function variables. Specifications can be constructed using de
 
 
 
-\subsection{The HACMS Project}
 
 
-\subsection{Translating PVS}
-\subsubsection{Parsing and typechecking PVS}
-These two task we leave to PVS native parser and typechecker.
 
-The parser generates objects representing the expressions of the theory.
+\subsection{Why translate PVS ?}
 
-We only convert a subset of PVS.
-This subset is defined by a subset of expression objects we can translate.
-The objective is, of course, to be able to translate the maximum of (if not all) PVS expression objects.
+\subsubsection*{The HACMS Project}
 
-\subsubsection{Other translator}
+\subsubsection*{Other translators}
+
 - Common Lisp (native)
-- Clean
+- ground evaluator
 - Yices
+- Clean
 
 
 
@@ -143,18 +145,18 @@ The objective is, of course, to be able to translate the maximum of (if not all)
 
 \subsection{Translation's architecture}
 
-The translation from PVS to C follow five main steps:
+The translation from PVS \cite{PVS:manuals} to C follow five main steps:
 \begin{itemize}
-\item Typechecking: The PVS typechecker perform a type analysis on the PVS code to associate a PVS type to each expression. This might generates some proof obligations (TCC). The user of the translator has to make sure that the PVS code can be correctly typechecked and that all TCC can be proven.
+\item Typechecking: The PVS typechecker \cite{PVS:userguide} perform a type analysis on the PVS code to associate a PVS type to each expression. This might generates some proof obligations (TCC). The user of the translator has to make sure that the PVS code can be correctly typechecked and that all TCC can be proven.
 
-\item Lexical and syntactic analysis: The PVS parser transforms PVS code into a CLOS internal representation. \\
+\item Lexical and syntactic analysis: The PVS parser transforms PVS \cite{PVS:language} code into a CLOS internal representation. \\
 
 In Figure~\ref{fig:PVSsyntax}, we describe the syntax of the subset of PVS we are currently able to translate to C.
-In Figure~\ref{fig:PVS-CLOS}, we describe the Common Lisp Object System architecture used by PVS to represent them in Common Lisp. Some classes and some slots in the classes are voluntarily ommitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
+In Figure~\ref{fig:PVS-CLOS}, we describe the Common Lisp Object System architecture used by PVS to represent them in Common Lisp. Some classes and some slots in the classes are voluntarily omitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
 
 \item Translation: The translator flattens PVS expressions to generates an intermediate language which heavily relies on the use of intermediate variables to allow a simpler static analysis. The syntax of this language is described Figure~\ref{fig:aux-syntax}.
 
-\item Static analysis: The intermediate language is analyzed and stripped from some of its unnecessary copies and non destructive updates using flow analysis and an enriched type system. This analysis inspired from Shankar \cite{shankar02}  \cite{incollection-minimal} and Pavol's \citep{pavol} previous analysis of PVS is described with more detail in Section~\ref{staticanal}.
+\item Static analysis: The intermediate language is analyzed and stripped from some of its unnecessary copies and non destructive updates using flow analysis and an enriched type system. This analysis inspired from Shankar \cite{shankar02} and Pavol Cerny's \cite{pavol} previous analysis of PVS is described with more detail in Section~\ref{staticanal}.
 
 Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i,d)$, where $t$ represents a C type used to describe the expression, $e$ is a simple expression, $i$ is a list of instructions to be executed prior to using $e$, the initialization of the expression. Finally $d$ is a list of instructions to be executed when $n$ isn't needed anymore, the destruction of $e$.
 
@@ -903,9 +905,7 @@ First algorithm:
 Need multiple passes as the flags disappear
 
 
-
-
-\begin{figure}
+\begin{figure}[!ht]
 \begin{tabular}{|p{50mm}|p{62mm}|p{45mm}|}
 \hline
 \cl{update(A, key, value)} & \cl{A[key] = value;} & \cl{A} must be \mut \\ \hline
@@ -932,7 +932,7 @@ for(i = 0; i < l; i++)
 
 
 
-\begin{figure}
+\begin{figure}[!ht]
 \begin{tabular}{|p{50mm}|p{50mm}|p{50mm}|}
 \hline
 \cl{value($cste$)} & \cl{42} & \\ \hline
@@ -961,6 +961,9 @@ To prevent that, we also perform a GC check. An update is actually a test wether
 
 
 \newpage
+\
+\newpage
+
 \section{Static analysis of the intermediate language}
 \label{staticanal}
 
@@ -998,15 +1001,16 @@ A \emph{redex} is an expression of the following form
 \item $\cl{array(} x \cl{)}$
 \item $X\cl{[(} x \cl{) := } y \cl{]}$
 \item $X\cl{[(} x \cl{) <- } y \cl{]}$
+\item $\cl{lambda(}  f_{ind} \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)}$ \ \ \ where $f_{ind} \in \N$ is a "function pointer".
+\item $y\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
 \item $p\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
 \item $f\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
 \item $\cl{set(} x \cl{, } v \cl{); } e$
-\item $\cl{push; } e$
 \item $\cl{pop( } v \cl{)}$
 \end{enumerate}
 
 We define a \emph{local environment}, $s_i$, as a function ranging over the set $N$ of all variable names with values in $V$.\\
-The \emph{stack state}, $s$, is a serie of local environments: $s = (s_0, ... , s_n)$.\\
+The \emph{stack state}, $s$, is a series of local environments: $s = (s_0, ... , s_n)$.\\
 We call $[]$ the empty function and if $s_i$ is a local environment ranging over the variables $U$, we write $s_i \uplus (x \mapsto v)$ the function ranging over $U \cup \{x\}$ mapping $x$ to $v$ and $y$ to $s_i(y)$ for $y \neq x$. For $s = (s_0, ... s_n)$ a stack state, we write $s \uplus (x \mapsto v) := \left( s_0 \uplus (x \mapsto v), s_1, ... , s_n \right)$. We also define $s(x)$ as $s_i(x)$ where $\forall j < i, s_j(x)$ is not defined.
 
 The \emph{heap state} function, $h$ is mapping references $ref(i)$ to arrays of values, $V*$.\\
@@ -1014,9 +1018,9 @@ The \emph{heap state} function, $h$ is mapping references $ref(i)$ to arrays of 
 The \emph{store} (or \emph{state}) function, $S$, describing the state of the memory at a certain point in the execution is defined as the couple $(s, h)$.\\
 We define $S(x) := s(x)$ and $S(ref(i)) := h(ref(i))$.
 
-A program is list of function declarations followed by a closed expression. For each function with id $f$ declared before the evaluation of the expression, we call $f_i$ the arguments of this function (variables) and $[f]$ its body (expression).
+A program is list of function declarations followed by a closed expression. For each function with id $f$ declared before the evaluation of the expression, we call $f_i$ the arguments of this function (variables) and $[f]$ its body (expression). A function is associated an id when declared. This is used in lambda terms to refer to a function using a value. We call $f^i$ the $i$-th function declared.
 
-The metavariable conventions are that $x$ and $y$ range over variables, $X$ ranges over variables typed as arrays $n$ ranges over numbers, $p$ ranges over primitive function symbols, $f$ ranges over defined function symbols, $a$, $b$ and $e$ range over expressions. \\
+The meta-variable conventions are that $x$ and $y$ range over variables, $X$ ranges over variables typed as arrays $n$ ranges over numbers, $p$ ranges over primitive function symbols, $f$ ranges over defined function symbols, $a$, $b$ and $e$ range over expressions. \\
 
 A \emph{reduction} transforms a pair consisting of a redex and a store. The reductions corresponding to the redexes above are
 
@@ -1024,15 +1028,16 @@ A \emph{reduction} transforms a pair consisting of a redex and a store. The redu
 \itemsep-0.2em
 \item $<x,S> \ \longrightarrow \ < s(x), S> $
 \item $<x \cl{[} y \cl{]} , S> \ \longrightarrow \ < h( s(x) )( s(y) ) , S >$
-\item $
-\cl{if (} x \cl{) } a \cl{ else } b, S>  \ \longrightarrow \ 
+\item $<\cl{if (} x \cl{) } a \cl{ else } b, (s,h) >  \ \longrightarrow \ 
 \left\lbrace \begin{array}{ll}
-< \cl{push; pop(}a\cl{)} , S> & \text{if } s(x) = 0 \\
-< \cl{push; pop(}b\cl{)} , S> & \text{otherwise}
+< \cl{pop(}a\cl{)} , ( [] :: s, h) > & \text{if } s(x) = 0 \\
+< \cl{pop(}b\cl{)} , ( [] :: s, h)> & \text{otherwise}
 \end{array} \right. $
-\item $<\cl{array(} x \cl{)} , S > \ \longrightarrow \ < ref(m), (s , h \uplus (ref(m) \mapsto (0)_{0 \leq i < s(x)}) ) >$\\
-
-where $h(ref(m))$ was not defined (meaning that $ref(m)$ is a "fresh pointer").
+\item $<\cl{array(} x \cl{)} , S > \ \longrightarrow \ < ref(m), (s , h' >$ where
+\begin{eqnarray*}
+h(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
+h' &=& h \uplus \left( ref(m) \mapsto (0)_{0 \leq i < s(x)} \right)
+\end{eqnarray*}
 \item $< X \cl{[(} x \cl{) := } y \cl{]} , S> \ \longrightarrow \ < ref(m), (s, h') >$ where
 \begin{eqnarray*}
 h(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
@@ -1042,11 +1047,31 @@ h' &=& h \uplus \left( ref(m) \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) 
 \begin{eqnarray*}
 h' &=& h \uplus \left( s(X) \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) \right) \right)
 \end{eqnarray*}
+\item $< \cl{lambda(} f_{ind} \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)} , S > \ \longrightarrow \ < ref(m), (s, h') > $ where
+\begin{eqnarray*}
+h(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
+h' &=& h \uplus \left( ref(m) \mapsto \left| \begin{array}{ccl}
+0 & \mapsto & f_{ind} \\
+1 & \mapsto & m \\
+i+1 & \mapsto & s(x_i) \ \text{ for } 1 \leq i \leq m \\
+\end{array} \right. \right)
+\end{eqnarray*}
+\item $< y\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}, (s,h) > \ \longrightarrow \ < \cl{pop(} [f] \cl{)}, ( (s' :: s), h) >$ where
+\begin{eqnarray*}
+E & := & h( s(y) ) \\
+f & & \text{is the $E(0)$-th function declared.} \\ 
+m & := & E(1) \\
+s' & : & \left| \begin{array}{ccl}
+\{ f_1, ... , f_{m+n} \} & \rightarrow & V \\
+f_i & \mapsto & E(i+1) \ \ \text{ for } i \leq m \\
+f_{m+i} & \mapsto & s(x_i) \ \ \text{ for } i \leq n
+\end{array} \right.
+\end{eqnarray*}
 \item $< p\cl{(} x \cl{, } y \cl{)}, S> \ \longrightarrow \ < p( s(x) , s(y) ), S>$ for binary operators.
 \item $< p\cl{(} x \cl{)}, S> \ \longrightarrow \ < p( s(x) ), S >$ for the \cl{not} operator.
-\item $<f\cl{(} x_1, ... , x_n \cl{)} , S> \ \longrightarrow \ < \cl{push; pop( set(}f_1 \cl{, } x_1\cl{); } ... \cl{set(}f_n \cl{, } x_n \cl{); } [f] \cl{)}, S> $
+\item $<f\cl{(} x_1, ... , x_n \cl{)} , (s,h) > \ \longrightarrow \ < \cl{pop( } [f] \cl{)}, (s' :: s, h) > $ where
+$$ s' = \biguplus_{1 \leq i \leq n} f_i \mapsto s(x_i) $$
 \item $<\cl{set(} x \cl{, } v \cl{); } e, S> \ \longrightarrow \ < e, (s \uplus (x \mapsto v), h)> $
-\item $<\cl{push; } e, ( (s_0, ... , s_n), h) >  \ \longrightarrow \ < e, ( ([], s_0, ... , s_n), h) >  $
 \item $<\cl{pop(} v \cl{)}, ( (s_0, ... , s_n), h) > \ \longrightarrow \ <v, ( (s_1, ... , s_n), h) > $
 \end{enumerate}
 
@@ -1071,7 +1096,7 @@ $$ eval_h : \left|
 \begin{array}{ccl}
 V &\longrightarrow & E \\
 n &\mapsto& n \in \N \\
-rem(k) &\mapsto& \left( eval_h(u_i) \right)_{0 \leq i \leq n} \text{ with } (u_i)_{0 \leq i < n} := h(rem(k))
+ref(k) &\mapsto& \left( eval_h(u_i) \right)_{0 \leq i \leq n} \text{ with } (u_i)_{0 \leq i < n} := h(ref(k))
 \end{array}
 \right. $$
 
@@ -1342,12 +1367,6 @@ Parsing Lisp code -> generate HTML architecture file\\
 Correcting translator PVS to SMT-LIB
 \cite{pavol}
 
-
-
-
-
-% \bibliographystyle{plain}
-% \bibliography{allbib}
 
 
 
