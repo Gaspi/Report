@@ -82,8 +82,7 @@ PVS (standing for Prototype Verification System), is an Open Source project deve
 
 \renewcommand{\abstractname}{Acknowledgements}
 \begin{abstract}
-I would like to thank my supervisor, Natarajan Shankar, for
-his help, explanations and suggestions as well as for the many enlightening discussions we had during this internship. I also thank Sam Owre for his explanations of the PVS API and Common Lisp in general, Robin Larrieu, from Polytechnique who shared an office and a lot of good ideas with me. I thank all of my teachers from  LIX who made this internship possible, with a special mention to Stéphane Graham-Lengrand and Benjamin Doerr who recommended me.
+I would like to thank my supervisor, Natarajan Shankar, for his help, explanations and suggestions as well as for the many enlightening discussions we had during this internship. I also thank Sam Owre for his explanations of the PVS API and Common Lisp in general, Robin Larrieu, from Polytechnique who shared an office and a lot of good ideas with me. I thank all of my teachers from  LIX who made this internship possible, with a special mention to Stéphane Graham-Lengrand and Benjamin Doerr who recommended me.
 Finally, I thank all the people at the CSL, for their welcome, the interesting discussions I had with them, and for creating an exciting and inspiring environment for work. 
 A special thank Lori Truitt for all the help she provided with administrative paperwork.
 \end{abstract}
@@ -156,15 +155,24 @@ Output objects
 Assertions that we (try to) maintain
 
 
-The translation from PVS to C is made following five main steps:
+The translation from PVS to C follow five main steps:
 \begin{itemize}
 \item Typechecking: The PVS typechecker perform a type analysis on the PVS code to associate a PVS type to each expression. This might generates some proof obligations (TCC).
 \item Lexical and syntactic analysis: The PVS parser transforms PVS code into a CLOS internal representation.
-\item Translation: The translator generates a different representation from PVS expressions and functions declarations.
-Typically, an expression $e$ is translated into a tuple of four elements $(t,n,i,d)$, where $t$ represents a C type used to describe the expression, $n$ is a string representing the expression, $i$ is a list of instructions supposed to be executed prior to using $n$ (initialisation of $n$) and $d$ is a list of instructions to be executed when $n$ isn't needed anymore (destruction of $n$).
-\item Analysis and optimizations: We run several analysis on the code representation. In particular, we determine the adapted C types, we try to avoid unnecessary copies and non destructive updates when possible using flow analysis and an enriched type system.
+\item Translation: The translator flattens PVS expressions to generates an intermediate language which relies on important use of variables to allow a simple static analysis. The syntax of this language is described Figure~\ref{fig:aux-syntax}.
+
+\item Static analysis: The intermediate language is analyzed and stripped from some of its unnecessary copies and non destructive updates using flow analysis and an enriched type system. This analysis is described with more detail in Section~\ref{staticanal}.
+
+Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i,d)$, where $t$ represents a C type used to describe the expression, $e$ is a simple expression, $i$ is a list of instructions to be executed prior to using $e$, the initialization of the expression. Finally $d$ is a list of instructions to be executed when $n$ isn't needed anymore, the destruction of $e$.
+
+\item Optimizations: Several simple analysis are performed, for instance to determine where to declare and free variables as well as the most adapted C types to use. The code generated from that step can be described by the syntax in Figure~\ref{fig:Csyntax}.
+
 \item Code generation: C code is generated (.c and .h files) and can be compiled using gcc and executed when linked with the garbage collector and the GMP library. 
 \end{itemize}
+
+
+
+
 
 We first define a function $T$ to translate an expression $e$.
 $$ T(e) = ( \ T^t(e) \ , \ T^n(e) \ , \ T^i(e) \ , \ T^d(e) \ ) $$
@@ -954,7 +962,7 @@ To prevent that, we also perform a GC check. An update is actually a test wether
 
 \newpage
 \section{Static analysis of the intermediate language}
-
+\label{staticanal}
 
 We describe here the static analysis of the intermediate language (which syntax is defined in Figure~\ref{fig:aux-syntax}) implemented in the translator.
 
