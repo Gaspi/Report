@@ -8,20 +8,19 @@
 \lit{array( } \hlink{Variable} \lit{ )} \\[-0.1in] & \choice &
 \hlink{Variable} \lit{[ (} \hlink{Variable} \lit{) := } \hlink{Variable} \lit{ ]} \\[-0.1in] & \choice &
 \hlink{Variable} \lit{[ (} \hlink{Variable} \lit{) <- } \hlink{Variable} \lit{ ]} \\[-0.1in] & \choice &
-\lit{lambda(} \hlink{Number} \lit{, } \hlink{Number} \lit{, }\hlink{Variables} \lit{)} \\[-0.1in] & \choice &
+\lit{lambda(} \hlink{Function} \lit{, } \hlink{Number} \lit{, }\hlink{Variables} \lit{)} \\[-0.1in] & \choice &
 \hlink{Variable} \lit{(} \hlink{Variables} \lit{)} \\[-0.1in] & \choice &
 \hlink{Function} \lit{(} \hlink{Variables} \lit{)} \\[-0.1in] & \choice &
+\hlink{PrimOp} \lit{(} \hlink{Variables} \lit{)} \\[-0.1in] & \choice &
 \lit{set( } \hlink{Variable} \lit{, } \hlink{Expr} \lit{ ); } Expr
 }
 
 \production{Variable}{\hlink{Id}}
-
-\production{Function}{ \hlink{PrimOp} \choice \hlink{Id}}
-
+\production{Function}{\hlink{Id}}
 \production{PrimOp}{
-\lit{+} \choice \lit{-} \choice \lit{*} \choice \lit{/} \choice \lit{\char'45} \\[-0.1in] & \choice &
-\lit{<} \choice \lit{<=} \choice \lit{>} \choice \lit{>=} \choice \lit{=} \\[-0.1in] & \choice &
-\lit{not} \choice \lit{and} \choice \lit{or} \choice \lit{iff}}
+  \lit{+} \choice \lit{-} \choice \lit{*} \choice \lit{/} \choice \lit{\char'45} \\[-0.1in] & \choice &
+  \lit{<} \choice \lit{<=} \choice \lit{>} \choice \lit{>=} \choice \lit{=} \\[-0.1in] & \choice &
+  \lit{not} \choice \lit{and} \choice \lit{or} \choice \lit{iff}}
 
 \production{FunctionDecl}{
 \hlink{Id}  \lit{( } \reps{\hlink{Variable}}{,} \lit{ )} \lit{ = } \hlink{Expr} }

@@ -1001,7 +1001,7 @@ A \emph{redex} is an expression of the following form
 \item $\cl{array(} x \cl{)}$
 \item $X\cl{[(} x \cl{) := } y \cl{]}$
 \item $X\cl{[(} x \cl{) <- } y \cl{]}$
-\item $\cl{lambda(}  f_{ind} \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)}$ \ \ \ where $f_{ind} \in \N$ is a "function pointer".
+\item $\cl{lambda(}  f \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)}$
 \item $y\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
 \item $p\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
 \item $f\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
@@ -1011,14 +1011,14 @@ A \emph{redex} is an expression of the following form
 
 We define a \emph{local environment}, $s_i$, as a function ranging over the set $N$ of all variable names with values in $V$.\\
 The \emph{stack state}, $s$, is a series of local environments: $s = (s_0, ... , s_n)$.\\
-We call $[]$ the empty function and if $s_i$ is a local environment ranging over the variables $U$, we write $s_i \uplus (x \mapsto v)$ the function ranging over $U \cup \{x\}$ mapping $x$ to $v$ and $y$ to $s_i(y)$ for $y \neq x$. For $s = (s_0, ... s_n)$ a stack state, we write $s \uplus (x \mapsto v) := \left( s_0 \uplus (x \mapsto v), s_1, ... , s_n \right)$. We also define $s(x)$ as $s_i(x)$ where $\forall j < i, s_j(x)$ is not defined.
+We call $[]$ the empty function and if $s_i$ is a local environment ranging over the variables $U$, we write $s_i \uplus (x \mapsto v)$ the function ranging over $U \cup \{x\}$ mapping $x$ to $v$ and $y$ to $s_i(y)$ for $y \neq x$. For $s = (s_0, ... s_n)$ a stack state, we write $s \uplus (x \mapsto v) := \left( s_0 \uplus (x \mapsto v), s_1, ... , s_n \right)$. We also define $s(x)$ as $s_i(x)$ where $\forall j < i, s_j(x)$ is not defined and to simplify notations, we call $s' :: s := (s', s_0, ... , s_n)$ and even $s' :: S  := (s' :: s, h)$.
 
 The \emph{heap state} function, $h$ is mapping references $ref(i)$ to arrays of values, $V*$.\\
 
 The \emph{store} (or \emph{state}) function, $S$, describing the state of the memory at a certain point in the execution is defined as the couple $(s, h)$.\\
 We define $S(x) := s(x)$ and $S(ref(i)) := h(ref(i))$.
 
-A program is list of function declarations followed by a closed expression. For each function with id $f$ declared before the evaluation of the expression, we call $f_i$ the arguments of this function (variables) and $[f]$ its body (expression). A function is associated an id when declared. This is used in lambda terms to refer to a function using a value. We call $f^i$ the $i$-th function declared.
+A program is list of function declarations followed by a closed expression. For each function with id $f$ declared before the evaluation of the expression, we call $f_i$ the arguments of this function (variables) and $[f]$ its body (expression). A function is associated not only an id but also a number when declared. This number is used in lambda terms to refer to a function using a value.
 
 The meta-variable conventions are that $x$ and $y$ range over variables, $X$ ranges over variables typed as arrays $n$ ranges over numbers, $p$ ranges over primitive function symbols, $f$ ranges over defined function symbols, $a$, $b$ and $e$ range over expressions. \\
 
@@ -1028,10 +1028,10 @@ A \emph{reduction} transforms a pair consisting of a redex and a store. The redu
 \itemsep-0.2em
 \item $<x,S> \ \longrightarrow \ < s(x), S> $
 \item $<x \cl{[} y \cl{]} , S> \ \longrightarrow \ < h( s(x) )( s(y) ) , S >$
-\item $<\cl{if (} x \cl{) } a \cl{ else } b, (s,h) >  \ \longrightarrow \ 
+\item $<\cl{if (} x \cl{) } a \cl{ else } b, S>  \ \longrightarrow \ 
 \left\lbrace \begin{array}{ll}
-< \cl{pop(}a\cl{)} , ( [] :: s, h) > & \text{if } s(x) = 0 \\
-< \cl{pop(}b\cl{)} , ( [] :: s, h)> & \text{otherwise}
+< \cl{pop(}a\cl{)} , [] :: S > & \text{if } s(x) = 0 \\
+< \cl{pop(}b\cl{)} , [] :: S > & \text{otherwise}
 \end{array} \right. $
 \item $<\cl{array(} x \cl{)} , S > \ \longrightarrow \ < ref(m), (s , h' >$ where
 \begin{eqnarray*}
@@ -1047,16 +1047,16 @@ h' &=& h \uplus \left( ref(m) \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) 
 \begin{eqnarray*}
 h' &=& h \uplus \left( s(X) \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) \right) \right)
 \end{eqnarray*}
-\item $< \cl{lambda(} f_{ind} \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)} , S > \ \longrightarrow \ < ref(m), (s, h') > $ where
+\item $< \cl{lambda(} f \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)} , S > \ \longrightarrow \ < ref(m), (s, h') > $ where
 \begin{eqnarray*}
 h(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
 h' &=& h \uplus \left( ref(m) \mapsto \left| \begin{array}{ccl}
-0 & \mapsto & f_{ind} \\
+0 & \mapsto & k \ \ \text{such that $f$ is the $k$-th function declared.} \\
 1 & \mapsto & m \\
 i+1 & \mapsto & s(x_i) \ \text{ for } 1 \leq i \leq m \\
 \end{array} \right. \right)
 \end{eqnarray*}
-\item $< y\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}, (s,h) > \ \longrightarrow \ < \cl{pop(} [f] \cl{)}, ( (s' :: s), h) >$ where
+\item $< y\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}, S> \ \longrightarrow \ < \cl{pop(} [f] \cl{)}, s' :: S>$ where
 \begin{eqnarray*}
 E & := & h( s(y) ) \\
 f & & \text{is the $E(0)$-th function declared.} \\ 
@@ -1069,7 +1069,7 @@ f_{m+i} & \mapsto & s(x_i) \ \ \text{ for } i \leq n
 \end{eqnarray*}
 \item $< p\cl{(} x \cl{, } y \cl{)}, S> \ \longrightarrow \ < p( s(x) , s(y) ), S>$ for binary operators.
 \item $< p\cl{(} x \cl{)}, S> \ \longrightarrow \ < p( s(x) ), S >$ for the \cl{not} operator.
-\item $<f\cl{(} x_1, ... , x_n \cl{)} , (s,h) > \ \longrightarrow \ < \cl{pop( } [f] \cl{)}, (s' :: s, h) > $ where
+\item $<f\cl{(} x_1, ... , x_n \cl{)} , S> \ \longrightarrow \ < \cl{pop( } [f] \cl{)}, s' :: S > $ where
 $$ s' = \biguplus_{1 \leq i \leq n} f_i \mapsto s(x_i) $$
 \item $<\cl{set(} x \cl{, } v \cl{); } e, S> \ \longrightarrow \ < e, (s \uplus (x \mapsto v), h)> $
 \item $<\cl{pop(} v \cl{)}, ( (s_0, ... , s_n), h) > \ \longrightarrow \ <v, ( (s_1, ... , s_n), h) > $
