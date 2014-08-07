@@ -981,15 +981,15 @@ Finally we describe an algorithm to replace non destructive updates with destruc
 
 \subsection{Operational semantic}
 
-A \emph{value} is either an integer $n \in \N$ or a reference $ref(i) \in R$. The metavariable $v$ ranges over the set of all values: $V := \N \cup R$.\\
+A \emph{value} is either an integer $n \in \N$, a reference $r \in R$ representing an array (or pointer) or a function id $f \in F$ . The metavariable $v$ ranges over the set of all values: $V := \N \cup R \cup F$.\\
 
 An \emph{evaluation context} (sometimes simply called \emph{context}) $E$ is an expression with an occurrence of a hole $\econt{}$. A context  and is of one of the forms
 \begin{enumerate}
 \itemsep-0.2em
 \item $\econt{}$
-\item $\cl{set(} x \cl{, } \econt{} \cl{); } e $
+\item $\cl{set(} x \cl{, } \econt{} \cl{); } e$
 \item $\cl{pop(} \econt{} \cl{)}$
-\item $E1\econt{E2}$ \ \ , where E1 and E2 are evaluation contexts.
+\item $E_1\econt{E_2}$ \ \ , where $E_1$ and $E_2$ are evaluation contexts.
 \end{enumerate}
 
 A \emph{redex} is an expression of the following form
@@ -1003,8 +1003,8 @@ A \emph{redex} is an expression of the following form
 \item $X\cl{[(} x \cl{) <- } y \cl{]}$
 \item $\cl{lambda(}  f \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)}$
 \item $y\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
-\item $p\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
 \item $f\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
+\item $p\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
 \item $\cl{set(} x \cl{, } v \cl{); } e$
 \item $\cl{pop( } v \cl{)}$
 \end{enumerate}
@@ -1013,10 +1013,10 @@ We define a \emph{local environment}, $s_i$, as a function ranging over the set 
 The \emph{stack state}, $s$, is a series of local environments: $s = (s_0, ... , s_n)$.\\
 We call $[]$ the empty function and if $s_i$ is a local environment ranging over the variables $U$, we write $s_i \uplus (x \mapsto v)$ the function ranging over $U \cup \{x\}$ mapping $x$ to $v$ and $y$ to $s_i(y)$ for $y \neq x$. For $s = (s_0, ... s_n)$ a stack state, we write $s \uplus (x \mapsto v) := \left( s_0 \uplus (x \mapsto v), s_1, ... , s_n \right)$. We also define $s(x)$ as $s_i(x)$ where $\forall j < i, s_j(x)$ is not defined and to simplify notations, we call $s' :: s := (s', s_0, ... , s_n)$ and even $s' :: S  := (s' :: s, h)$.
 
-The \emph{heap state} function, $h$ is mapping references $ref(i)$ to arrays of values, $V*$.\\
+The \emph{heap state} function, $h$ is mapping references $r$ to arrays of values, $V*$.\\
 
 The \emph{store} (or \emph{state}) function, $S$, describing the state of the memory at a certain point in the execution is defined as the couple $(s, h)$.\\
-We define $S(x) := s(x)$ and $S(ref(i)) := h(ref(i))$.
+We define $S(x) := s(x)$ and $S(r) := h(r)$.
 
 A program is list of function declarations followed by a closed expression. For each function with id $f$ declared before the evaluation of the expression, we call $f_i$ the arguments of this function (variables) and $[f]$ its body (expression). A function is associated not only an id but also a number when declared. This number is used in lambda terms to refer to a function using a value.
 
@@ -1026,51 +1026,32 @@ A \emph{reduction} transforms a pair consisting of a redex and a store. The redu
 
 \begin{enumerate}
 \itemsep-0.2em
-\item $<x,S> \ \longrightarrow \ < s(x), S> $
-\item $<x \cl{[} y \cl{]} , S> \ \longrightarrow \ < h( s(x) )( s(y) ) , S >$
+\item $<x,S> \ \longrightarrow \ < S(x), S> $
+\item $<x \cl{[} y \cl{]} , S> \ \longrightarrow \ < h(s(x))(s(y)) , S>$
 \item $<\cl{if (} x \cl{) } a \cl{ else } b, S>  \ \longrightarrow \ 
 \left\lbrace \begin{array}{ll}
 < \cl{pop(}a\cl{)} , [] :: S > & \text{if } s(x) = 0 \\
 < \cl{pop(}b\cl{)} , [] :: S > & \text{otherwise}
 \end{array} \right. $
-\item $<\cl{array(} x \cl{)} , S > \ \longrightarrow \ < ref(m), (s , h' >$ where
-\begin{eqnarray*}
-h(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
-h' &=& h \uplus \left( ref(m) \mapsto (0)_{0 \leq i < s(x)} \right)
-\end{eqnarray*}
-\item $< X \cl{[(} x \cl{) := } y \cl{]} , S> \ \longrightarrow \ < ref(m), (s, h') >$ where
-\begin{eqnarray*}
-h(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
-h' &=& h \uplus \left( ref(m) \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) \right) \right)
-\end{eqnarray*}
+\item $<\cl{array(} x \cl{)} , S > \ \longrightarrow \ <r, \left(s, h \uplus \left( r \mapsto (0)_{0 \leq i < s(x)} \right) \right) >$ where $r$ is a fresh pointer.
+\item $< X \cl{[(} x \cl{) := } y \cl{]} , S> \ \longrightarrow \ < r, (s, h') >$ where $r$ is a fresh pointer and
+$$ h' = h \uplus \left( r \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) \right) \right) $$
 \item $< X \cl{[(} x \cl{) <- } y \cl{]} , S> \ \longrightarrow \ < X, (s, h') >$ where
 \begin{eqnarray*}
 h' &=& h \uplus \left( s(X) \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) \right) \right)
 \end{eqnarray*}
-\item $< \cl{lambda(} f \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)} , S > \ \longrightarrow \ < ref(m), (s, h') > $ where
-\begin{eqnarray*}
-h(ref(m)) & & \text{ is not defined  \ \ \ \ ($ref(m)$ is a fresh pointer)} \\
-h' &=& h \uplus \left( ref(m) \mapsto \left| \begin{array}{ccl}
-0 & \mapsto & k \ \ \text{such that $f$ is the $k$-th function declared.} \\
-1 & \mapsto & m \\
-i+1 & \mapsto & s(x_i) \ \text{ for } 1 \leq i \leq m \\
-\end{array} \right. \right)
-\end{eqnarray*}
-\item $< y\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}, S> \ \longrightarrow \ < \cl{pop(} [f] \cl{)}, s' :: S>$ where
-\begin{eqnarray*}
-E & := & h( s(y) ) \\
-f & & \text{is the $E(0)$-th function declared.} \\ 
-m & := & E(1) \\
-s' & : & \left| \begin{array}{ccl}
+\item $< \cl{lambda(} f \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)} , S > \ \longrightarrow \ < r, (s, h') > $ where $r$ is a fresh pointer and
+$$h' = h \uplus ( r \mapsto (f, m, s(x_1), ... , s(x_m) ) ) $$
+\item $< y\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}, S> \ \longrightarrow \ < \cl{pop(} [f] \cl{)}, s' :: S>$ where $E = h(s(y))$, $f=E(0)$, $m=E(1)$,
+$$ s' : \left| \begin{array}{ccl}
 \{ f_1, ... , f_{m+n} \} & \rightarrow & V \\
 f_i & \mapsto & E(i+1) \ \ \text{ for } i \leq m \\
 f_{m+i} & \mapsto & s(x_i) \ \ \text{ for } i \leq n
-\end{array} \right.
-\end{eqnarray*}
-\item $< p\cl{(} x \cl{, } y \cl{)}, S> \ \longrightarrow \ < p( s(x) , s(y) ), S>$ for binary operators.
-\item $< p\cl{(} x \cl{)}, S> \ \longrightarrow \ < p( s(x) ), S >$ for the \cl{not} operator.
-\item $<f\cl{(} x_1, ... , x_n \cl{)} , S> \ \longrightarrow \ < \cl{pop( } [f] \cl{)}, s' :: S > $ where
+\end{array} \right. $$
+\item $<f\cl{(} x_1, ... , x_n \cl{)} , S> \ \longrightarrow \ < \cl{pop(} [f] \cl{)}, s' :: S > $ where
 $$ s' = \biguplus_{1 \leq i \leq n} f_i \mapsto s(x_i) $$
+\item $< p\cl{(} x \cl{, } y \cl{)}, S> \ \longrightarrow \ < p( s(x) , s(y) ), S>$ for binary operators.
+\item $< p\cl{(} x \cl{)}, S> \ \longrightarrow \ < p( s(x) ), S >$ for the unary operator (\cl{not}).
 \item $<\cl{set(} x \cl{, } v \cl{); } e, S> \ \longrightarrow \ < e, (s \uplus (x \mapsto v), h)> $
 \item $<\cl{pop(} v \cl{)}, ( (s_0, ... , s_n), h) > \ \longrightarrow \ <v, ( (s_1, ... , s_n), h) > $
 \end{enumerate}
@@ -1081,34 +1062,107 @@ This is represented by the following rule.
 \AxiomC{$<a, s> \ \longrightarrow \ <a', s'>$}
 \UnaryInfC{$<E\econt{a}, s> \ \longrightarrow \ <E\econt{a'}, s'>$}
 \end{prooftree}
-One of the greatest advantage of using evaluation contexts is that we define the semantics of this language using only two small-step rules. The evaluation context rule and the transitivity rule:
-\begin{prooftree}
-\AxiomC{$<a, s> \ \longrightarrow \ <b, s'>$}
-\AxiomC{$<b, s'> \ \longrightarrow \ <c, s''>$}
-\BinaryInfC{$<a, s> \ \longrightarrow \ <c, s''>$}
-\end{prooftree}
-The other advantage of using context is to be able to place critical expressions like updates into a context where the evaluation order is well defined and we can identify a few particular sets of variables.
+One of the greatest advantage of using evaluation contexts is that we define the semantics of this language using only this one small-step rule.\\
 
-The reflexive-transitive closure of $\longrightarrow$  is represented $ \longrightarrow^*$.
+The reflexive-transitive closure of $\longrightarrow$  is represented $\xrightarrow{*}$.
 The computation of a program is defined as the evaluation of its expression $<e, S_0>$ on an empty store: $S_0 := (([]), [])$.
-If $<e, S_0)> \longrightarrow^* <e', S'>$ then we can prove that $e' \in V$ and the result of the computation is then defined as $eval_{h'}(e')$ where $eval_h$ is defined as follow:
+If $<e, S_0)> \xrightarrow{*} <e', S'>$ then we can prove that $e' \in V$ and the result of the computation is then defined as $eval_{h'}(e')$ where $eval_h$ is defined as follow:
 $$ eval_h : \left|
 \begin{array}{ccl}
 V &\longrightarrow & E \\
 n &\mapsto& n \in \N \\
-ref(k) &\mapsto& \left( eval_h(u_i) \right)_{0 \leq i \leq n} \text{ with } (u_i)_{0 \leq i < n} := h(ref(k))
+r &\mapsto& \left( eval_h(u_i) \right)_{0 \leq i \leq n} \text{ with } (u_i)_{0 \leq i < n} := h(r)
 \end{array}
 \right. $$
 
 \begin{theorem}
-For all $<e, S_0> \ \longrightarrow \ <e', (s,h)>$, $h$ is defined on $R \cap Im(s)$. All references pointed to by a variable is defined in the heap stack.
+For all $<e, S_0> \ \xrightarrow{*} \ <v, (s,h)>$, $h$ is defined on $R \cap \left( \{v \} \cup Im(s) \cup Im(h) \right)$. All references stored in the stack or in the heap or reduced from an expression are defined in the heap state.
 \end{theorem}
+\begin{proof}
+We proof this theorem by induction on the structure of the code.
+\begin{enumerate}
+\item Base cases: All redexes generating a fresh pointer (4, 5 and 7) modify the heap state to define it on that new pointer.\\
+\item Induction step:
+\begin{itemize}
+\item References defined in the store are never undefined. If $<e, S> \ \longrightarrow \ <e', S'>$ and $h$ defined on $r$ then $h$ defined on $r'$. This is easily proven since no redex remove a definition in the heap.
+\item Whenever a value in the heap or in the store is modified, it is replaced with functions (redex 7), integers (redex 4 and 7), values from the heap (redexes 2, 5, 6 and 8), values from the stack (redexes 1, 5, 6, 7, 8, 9, 10 and 11) or values reduced from an expression (redexes 12 and 13).
+\end{itemize}
+\end{enumerate}
+\end{proof}
+
+
+\subsection{Sets of variables}
+
+
+We define the free variables, $Fv$, of an expression as the set of all variables that occur in that expression. For this study, we are only interested in variables that may refer to an array.\\
+
+We also define the \emph{output} variables, $Ov$, of an expression. This is the set of all variables that may have their value "trapped" into the expression. It corresponds to all the variables which content might get modified if this expression gets modified in place.\\
+
+Finally, we define the \emph{active} variables, $Av$, of an expression. This is the set of all variables that may contain a reference to the expression. It corresponds to all the variables that could be accessed from the value returned by the expression.
+
+\def\arraystretch{1.2}
+\begin{center}
+\begin{tabular}{|c|@{}c@{}|@{}c@{}|@{}c@{}|}
+\hline
+Expression & $Ov$ & $Av$ & $Fv$ \\ \hline
+$n$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\ \hline
+$X$ & $\{ X \}$ & $\{ X \}$ & $\{ X \}$ \\ \hline
+$X\cl{[}x\cl{]}$ & $\{ X \}$ & $\{ X, X^* \}$ & $\{ X, X^* \}$ \\ \hline
+\begin{minipage}{2cm}
+\vspace{0.1cm}
+$\cl{if (} x \cl{) } a$ \\
+$ \cl{ else } \ \  b$
+\vspace{0.1cm}
+\end{minipage} & $Ov(a) \cup Ov(b)$ & $Av(a) \cup Av(b)$ & $Fv(a) \cup Fv(b)$ \\ \hline
+$\cl{array(} x \cl{)}$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\ \hline
+$X \cl{[(} x \cl{) := } y \cl{]}$ & $ \emptyset $ & $\{ y \}$ & $\{ X, y \}$ \\ \hline
+$X \cl{[(} x \cl{) <- } y \cl{]}$ & $ \{ X \} $ & $\{ X, y \}$ & $\{ X, y \}$ \\ \hline
+$\begin{array}{l}
+\cl{lambda(}f\cl{, } m \cl{,} \\
+\qquad x_1\cl{, }...\cl{, }x_m\cl{)}
+\end{array}$ & $\emptyset$ & $\{ x_1, .. , x_m \}$ & $\{ x_1, .. , x_m \}$ \\ \hline
+$y(x_1 \cl{, } ... \cl{, } x_n)$ & $\{ x_1, ... , x_n \}$ & $\{ x_1, ... , x_n \}$ & $\{ y, x_1, .. , x_n \}$ \\ \hline
+$f(x_1 \cl{, } ... \cl{, } x_n)$  & $\{x_i | f_i \in Ov([f]) \}$ & $\{x_i | f_i \in Av([f]) \}$ & $\{x_1, .. , x_n \}$ \\ \hline
+$p(x_1 \cl{, } ... \cl{, } x_n)$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\ \hline
+\begin{minipage}{2cm}
+\vspace{0.1cm}
+$\cl{set(}x\cl{, }a\cl{);}$ \\
+$e$
+\vspace{0.1cm}
+\end{minipage} &
+$\begin{array}{l}
+Ov(e) \cup Ov(a)\\
+\qquad \qquad \text{if $x \in Ov(e)$}\\
+Ov(e) \qquad \text{ \ otherwise}
+\end{array}$
+&
+$\begin{array}{l}
+Av(e) \cup Av(a)\\
+\qquad \qquad \text{if $x \in Av(e)$}\\
+Av(e) \qquad \text{ \ otherwise}
+\end{array}$
+& $Fv(a) \cup Fv(e)$ \\ \hline
+\end{tabular}
+\end{center}
+\def\arraystretch{1}
+
+
+\begin{theorem}
+$Ov(e) \subset Av(e) \subset Fv$.
+\end{theorem}
+\begin{proof}
+Simple induction proof on the expression form.
+\end{proof}
+
+
 
 
 
 \subsection{Update context}
 
-We now define an \emph{update context} as an expression with a single occurence of a hole:
+The advantage of using contexts is to be able to place critical expressions like updates into a context where the evaluation order is well defined and we can identify expression evaluated before and after the reduction of a critical redex like a function call or a destructive update. These two being the only redexes that can modify the heap store in place.\\
+
+We introduce \emph{update contexts} as an expression with a single occurence of a hole:
 \begin{enumerate}
 \itemsep-0.2em
 \item $\ucont{}$
@@ -1119,29 +1173,35 @@ We now define an \emph{update context} as an expression with a single occurence 
 \end{enumerate}
 
 
-We define the live variables, $Lv$, of an expression as
-\begin{eqnarray*}
-Lv( n ) & := & \emptyset \\
-Lv( x ) & := & \{ x \} \\
-Lv( X\cl{[}x\cl{]} ) & := & \{ X, x \} \\
-Lv( \cl{if (} x \cl{) } a \cl{ else } b) & := & \{ x \} \cup Lv(a) \cup Lv(b) \\
-Lv( \cl{array(} x \cl{)} ) & := & \{ x \} \\
-Lv( X \cl{[(} x \cl{) := } y \cl{]} ) & := & \{ X, x, y \} \\
-Lv( X \cl{[(} x \cl{) <- } y \cl{]} ) & := & \{ X, x, y \} \\
-Lv( f(x_1 \cl{, } ... \cl{, } x_n) ) & := & \{ x_1, ... , x_n \} \\
-Lv( p(x_1 \cl{, } ... \cl{, } x_n) ) & := & \emptyset \\
-Lv( \cl{set(} x \cl{, } a \cl{); } e ) &:=& Lv(a) \cup \left( Lv(e) - \{ x \} \right)
-\end{eqnarray*}
-
-The variables live in a context are defined as:
+The variables that may be aliased to a variable $X$, in a context $U$ is defined as 
 \begin{eqnarray*}
 Lv(\ucont{} ) &:=& \emptyset \\
-Lv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Lv(U) \cup \left(Lv(e) - \{ x \} \right) \text{ where $U$ is an update context.} \\
-Lv( \cl{set(} x \cl{, } a \cl{); } U ) &:=& Lv(U) \\
-\cl{if (} x \cl{) } U \cl{ else } b &:=& Lv(U) \\
-\cl{if (} x \cl{) } a \cl{ else } U &:=& Lv(U) 
+Lv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Lv(U) \cup ( Fv(e) - \{ x \} ) \\
+Lv( \cl{set(} x \cl{, } a \cl{); } U ) &:=& Lv(U) \cup \left\lbrace \begin{array}{ll}
+Av(a) & \text{if $x \in Lv(U)$.} \\
+\emptyset & \text{otherwise.}
+\end{array} \right. \\
+Lv( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Lv(U) \\
+Lv( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Lv(U) 
 \end{eqnarray*}
 
+The variables live in a context are defined as the variables that are 
+\begin{eqnarray*}
+Lv(\ucont{} ) &:=& \emptyset \\
+Lv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Lv(U) \cup ( Fv(e) - \{ x \} ) \\
+Lv( \cl{set(} x \cl{, } a \cl{); } U ) &:=& Lv(U) \cup \left\lbrace \begin{array}{ll}
+Av(a) & \text{if $x \in Lv(U)$.} \\
+\emptyset & \text{otherwise.}
+\end{array} \right. \\
+Lv( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Lv(U) \\
+Lv( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Lv(U) 
+\end{eqnarray*}
+
+
+
+
+
+\subsection{Analysis in term of references}
 
 We also define the live cells, $Lc$, in an expression or update $e$ for a given store $S$.
 \begin{eqnarray*}
@@ -1159,33 +1219,6 @@ If $<e_1, (s_1, h_1)> \ \longrightarrow \ <e_2, (s_2, h_2)>$ then $<e_1, (s_1, h
 It can easily be verified for every redex. When $a = U\ucont{b}$, we have $Lc(a) = Lc(U) \cup Lc(b)$ and the inductive step is proved .
 \end{proof}
 
-
-\subsection{Output variables}
-
-We define the \emph{output} variables, $Ov$, of an expression:
-\begin{eqnarray*}
-Ov( n ) & := & \emptyset \\
-Ov( x ) & := & \{ x \} \\
-Ov( X\cl{[}x\cl{]} ) & := & \{ X \} \\
-Ov( \cl{if (} x \cl{) } a \cl{ else } b ) & := & Ov(a) \cup Ov(b) \\
-Ov( \cl{array(} x \cl{)} ) & := & \emptyset \\
-Ov( X \cl{[(} x \cl{) := } y \cl{]} ) & := & \emptyset \\
-Ov( X \cl{[(} x \cl{) <- } y \cl{]} ) & := & \{ X \} \\
-Ov( f(x_1 \cl{, } ... \cl{, } x_n) ) & := & \{ x_i | f_i \in Ov([f]) \} \\
-Ov( p(x_1 \cl{, } ... \cl{, } x_n) ) & := & \emptyset \\
-Ov( \cl{set(} x \cl{, } a \cl{); } e ) &:=& Ov(e) - \{x\} \cup \left\lbrace \begin{array}{ll}
-Ov(a) & \text{ if $x \in Ov(e)$.} \\
-\emptyset & \text{ otherwise.}
-\end{array} \right.
-\end{eqnarray*}
-This is the set of all variables which may have their value "trapped" into the expression.
-
-\begin{theorem}
-$Ov(e) \subset Lv(e)$. The output variables of an expression are live in that expression.
-\end{theorem}
-\begin{proof}
-Simple induction proof on the expression form.
-\end{proof}
 
 
 We define the set $Dv(U)(z)$ of all variables that may contain a reference to $z$ in a certain context $U$:
