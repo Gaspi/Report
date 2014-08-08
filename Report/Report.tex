@@ -1101,9 +1101,21 @@ We proof this theorem by induction on the structure of the code.
 
 We define the free variables, $Fv$, of an expression as the set of all variables that occur in that expression. For this study, we are only interested in variables that may refer to an array.\\
 
-We also define the \emph{output} variables, $Ov$, of an expression. This is the set of all variables that may have their value "trapped" into the expression. It corresponds to all the variables which content might get modified if this expression gets modified in place.\\
+We also define the \emph{output} variables, $Ov(e)$, of an expression. This can be understood in three ways:
+\begin{itemize}
+\item This is the set of all variables that may have their value "trapped" into the expression $e$.
+\item It corresponds to all the variables which content might get modified if $e$ gets modified in place.
+\item It is the set of all variables which content the pointer corresponding to the evaluation of $e$ may point to.
+\end{itemize}
 
-Finally, we define the \emph{active} variables, $Av$, of an expression. This is the set of all variables that may contain a reference to the expression. It corresponds to all the variables that could be accessed from the value returned by the expression.
+Finally, we define the \emph{active} variables, $Av$, of an expression. In a similar way, this can be understood as:
+\begin{itemize}
+\item The set of all variables that may contain a reference to the expression $e$.
+\item It corresponds to all the variables that could be accessed from the value returned by the expression.
+\item It is the set of all variables which evaluation may be a pointer pointing to $e$.
+\end{itemize}
+
+If $X$ s a variable, $X^*$ refers to all the references $X$ may point to. It is obvious that if $X \in Av(e)$, then $X^* \in Av(e)$ as well. In that case, we voluntarily omit to mention $X^*$ in the definition of these set below.
 
 \def\arraystretch{1.2}
 \begin{center}
@@ -1112,7 +1124,7 @@ Finally, we define the \emph{active} variables, $Av$, of an expression. This is 
 Expression & $Ov$ & $Av$ & $Fv$ \\ \hline
 $n$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\ \hline
 $X$ & $\{ X \}$ & $\{ X \}$ & $\{ X \}$ \\ \hline
-$X\cl{[}x\cl{]}$ & $\{ X \}$ & $\{ X \}$ & $\{ X \}$ \\ \hline
+$X\cl{[}x\cl{]}$ & $\{ X^* \}$ & $\{ X^* \}$ & $\{ X \}$ \\ \hline
 \begin{minipage}{2cm}
 \vspace{0.1cm}
 $\cl{if (} x \cl{) } a$ \\
@@ -1120,14 +1132,21 @@ $ \cl{ else } \ \  b$
 \vspace{0.1cm}
 \end{minipage} & $Ov(a) \cup Ov(b)$ & $Av(a) \cup Av(b)$ & $Fv(a) \cup Fv(b)$ \\ \hline
 $\cl{array(} x \cl{)}$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\ \hline
-$X \cl{[(} x \cl{) := } y \cl{]}$ & $ \emptyset $ & $\{ y \}$ & $\{ X, y \}$ \\ \hline
+$X \cl{[(} x \cl{) := } y \cl{]}$ & $ \emptyset $ & $\{ X^*, y \}$ & $\{ X, y \}$ \\ \hline
 $X \cl{[(} x \cl{) <- } y \cl{]}$ & $ \{ X \} $ & $\{ X, y \}$ & $\{ X, y \}$ \\ \hline
 $\begin{array}{l}
 \cl{lambda(}f\cl{, } m \cl{,} \\
 \qquad x_1\cl{, }...\cl{, }x_m\cl{)}
 \end{array}$ & $\emptyset$ & $\{ x_1, .. , x_m \}$ & $\{ x_1, .. , x_m \}$ \\ \hline
-$y(x_1 \cl{, } ... \cl{, } x_n)$ & $\{ x_1, ... , x_n \}$ & $\{ x_1, ... , x_n \}$ & $\{ y, x_1, .. , x_n \}$ \\ \hline
-$f(x_1 \cl{, } ... \cl{, } x_n)$  & $\{x_i | f_i \in Ov([f]) \}$ & $\{x_i | f_i \in Av([f]) \}$ & $\{x_1, .. , x_n \}$ \\ \hline
+$y(x_1 \cl{, } ... \cl{, } x_n)$ & $\{ x_1, x^*_1, ... , x_n, x^*_n \}$ & $\{ x_1, ... , x_n \}$ & $\{ y, x_1, .. , x_n \}$ \\ \hline
+$f(x_1 \cl{, } ... \cl{, } x_n)$  &
+$\begin{array}{cl}
+& \{x_i | f_i \in Ov([f]) \} \\
+\cup & \{ x^*_i | f^*_i \in Ov([f]) \} \end{array}$ &
+$\begin{array}{cl}
+& \{x_i | f_i \in Av([f]) \} \\
+\cup & \{ x^*_i | f^*_i \in Av([f]) \} \end{array}$
+& $\{x_1, .. , x_n \}$ \\ \hline
 $p(x_1 \cl{, } ... \cl{, } x_n)$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\ \hline
 \begin{minipage}{2cm}
 \vspace{0.1cm}
@@ -1136,14 +1155,16 @@ $e$
 \vspace{0.1cm}
 \end{minipage} &
 $\begin{array}{l}
+Ov(e) \cup Av(a) - \{ x, x^* \} \\
+\qquad \qquad \text{if }x^* \in Ov(e) \\
 Ov(e) \cup Ov(a) - \{ x \} \\
-\qquad \qquad \text{if $x \in Ov(e)$}\\
+\qquad \qquad \text{if }x \in Ov(e) \\
 Ov(e) \qquad \text{ \ otherwise}
 \end{array}$
 &
 $\begin{array}{l}
-Av(e) \cup Av(a) - \{ x \} \\
-\qquad \qquad \text{if $x \in Av(e)$}\\
+Av(e) \cup Av(a) - \{ x, x^* \} \\
+\qquad \qquad \text{if $x $ or $x^* \in Av(e)$}\\
 Av(e) \qquad \text{ \ otherwise}
 \end{array}$
 & $Fv(a) \cup Fv(e) - \{ x \} $ \\ \hline
@@ -1163,7 +1184,7 @@ Simple induction proof on the expression form.
 
 
 
-\subsection{Deadness analysis of update context}
+\subsection{Analysis of update context}
 
 The advantage of using contexts is to be able to place critical expressions like updates into a context where the evaluation order is well defined and we can identify expression evaluated before and after the reduction of a critical redex like a function call or a destructive update. These two being the only redexes that can modify the heap store in place.\\
 
@@ -1177,12 +1198,15 @@ We introduce \emph{update contexts} as an expression with a single occurrence of
 \item $ \cl{if (} x \cl{) } a \cl{ else } U $
 \end{enumerate}
 
-To define which update can be made destructively, we now consider the set $Dv(U)(X)$ of the variables that might point to the variable in the context $U$. The idea is that to be able to update $X$ in a context $U$, we actually need to be able to update all $Dv(U)(X)$ as well.
+To define which update can be made destructively, we now consider the critical analysis $CA(U)(X)$ as the set of the variables that might point to the variable $X$ in the context $U$. The idea is that to be able to update $X$ in a context $U$, we actually need to be able to update all $Dv(U)(X)$ as well.
+$\perp$ meaning that the variable can't be updated destructively. $\perp \cup S := \perp$ and $\perp \cap S := S$.
 
 \begin{eqnarray*}
 Dv(\ucont{} ) &:& X \mapsto \{ X \} \\
 Dv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Dv(U) \\
 Dv( \cl{set(} x \cl{, } a \cl{); } U )(X) &:=& Dv(U)(X) \cup \left\lbrace \begin{array}{ll}
+\perp & \text{if $Dv(U)(X) \cap Av(a) \neq \emptyset$.} \\
+Av(a) & \text{if $x^* \in Dv(U)(X)$.} \\
 Ov(a) & \text{if $x \in Dv(U)(X)$.} \\
 \emptyset & \text{otherwise.}
 \end{array} \right. \\
@@ -1194,7 +1218,7 @@ Dv( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Dv(U)
 
 For $X$ a variable and $U$ a context, we also consider the set of critical variables $Cv(U)(X)$ containing $Dv(U)(X)$ and close under the relation $\forall x \in Cv(U)(X), Dv(U)(x) \subset Cv(U)(X)$. This includes the variable that may be aliased to $X$ and the variables that may be aliased to these variables, and so on.\\
 
-We refer to the liveness analysis of a context $U$ as the function $LA$ such that $LA(U)(X)$ is the set of variables such that if one is live in the context $U$, then $X$ is also live in that same context. $\perp$ meaning that the variable is live without condition. $\perp \cup S := \perp$ and $\perp \cap S := S$.
+We refer to the liveness analysis of a context $U$ as the function $LA$ such that $LA(U)(X)$ is the set of variables such that if one is live in the context $U$, then $X$ is also live in that same context. $\perp$ meaning that the variable is live without condition.
 \begin{eqnarray*}
 LA(\ucont{} )(X) &:=& \{ X \} \\
 LA( \cl{set(} x \cl{, } U \cl{); } e )(X) &:=& 
