@@ -791,7 +791,7 @@ Then for each of these arguments :
   - If it occurs destructively, it can never occur at all AFTER.
   -> Need to define the order of evaluation of expression
       (easy rules on simple expressions)
-  -> Need to be able to detect occurences of a name-expr
+  -> Need to be able to detect occurrences of a name-expr
   -> Otherwise, unflag the arg
 
 A variable $V$ of type array is created in these cases:
@@ -878,12 +878,12 @@ All arguments of the function are flagged \mut
 
 
 
-What is a destructive occurence :
+What is a destructive occurrence :
 $$ E :=  \cl{f(  t with [ e1 := e2 ] , t(0) )} $$
 order of eval :
 e1 and e2  (t can occur non destr)
 t          ( expression of an update : destr)
-t(0)       ( occurence of t (even non destr))
+t(0)       ( occurrence of t (even non destr))
 
 \cl{f(x:Arr):int = g( h(t), t)}  is destructively translated to \\
 \begin{lstlisting}[numbers=left,caption=Example]
@@ -974,6 +974,12 @@ We describe here the static analysis of the intermediate language (which syntax 
 \caption{Syntax of the intermediate language}
 \end{figure}
 
+We assume a few properties on valid programs:
+\begin{enumerate}
+\item The \cl{set} instruction is a declaration and an assignment of a variable to a value at the same time. If an expression contains two \cl{set} of the same variable, the second \cl{set} will override the first definition.
+\item The only free variables in the body of a function declaration are the arguments of that function.
+\end{enumerate}
+
 We first define the semantics of the language using a small-steps operational semantics. Then we define a few operators on the language and exhibit some properties.
 Finally we describe an algorithm to replace non destructive updates with destructive updates under certain conditions and prove that there is a bisimulation between programs before and after applying this algorithm. This proves that the execution of the program is not disturbed by the replacements and thus the correctness of the algorithm.
 
@@ -1048,11 +1054,10 @@ $$ s' : \left| \begin{array}{ccl}
 f_i & \mapsto & E(i+1) \ \ \text{ for } i \leq m \\
 f_{m+i} & \mapsto & s(x_i) \ \ \text{ for } i \leq n
 \end{array} \right. $$
-\item $<f\cl{(} x_1, ... , x_n \cl{)} , S> \ \longrightarrow \ < \cl{pop(} [f] \cl{)}, s' :: S > $ where
-$$ s' = \biguplus_{1 \leq i \leq n} f_i \mapsto s(x_i) $$
+\item $<f\cl{(} x_1, ... , x_n \cl{)} , S> \ \longrightarrow \ < \cl{pop(} [f] \cl{)}, \left( \biguplus_{1 \leq i \leq n} f_i \mapsto s(x_i) \right) :: S > $
 \item $< p\cl{(} x \cl{, } y \cl{)}, S> \ \longrightarrow \ < p( s(x) , s(y) ), S>$ for binary operators.
 \item $< p\cl{(} x \cl{)}, S> \ \longrightarrow \ < p( s(x) ), S >$ for the unary operator (\cl{not}).
-\item $<\cl{set(} x \cl{, } v \cl{); } e, S> \ \longrightarrow \ < e, (s \uplus (x \mapsto v), h)> $
+\item $<\cl{set(} x \cl{, } v \cl{); } e, S> \ \longrightarrow \ < \cl{pop(}e\cl{)}, (x \mapsto v) :: S> $
 \item $<\cl{pop(} v \cl{)}, ( (s_0, ... , s_n), h) > \ \longrightarrow \ <v, ( (s_1, ... , s_n), h) > $
 \end{enumerate}
 
@@ -1084,8 +1089,8 @@ We proof this theorem by induction on the structure of the code.
 \item Base cases: All redexes generating a fresh pointer (4, 5 and 7) modify the heap state to define it on that new pointer.\\
 \item Induction step:
 \begin{itemize}
-\item References defined in the store are never undefined. If $<e, S> \ \longrightarrow \ <e', S'>$ and $h$ defined on $r$ then $h$ defined on $r'$. This is easily proven since no redex remove a definition in the heap.
-\item Whenever a value in the heap or in the store is modified, it is replaced with functions (redex 7), integers (redex 4 and 7), values from the heap (redexes 2, 5, 6 and 8), values from the stack (redexes 1, 5, 6, 7, 8, 9, 10 and 11) or values reduced from an expression (redexes 12 and 13).
+\item References defined in the store are never undefined. If $<e, S> \ \longrightarrow \ <e', S'>$ and $h$ is defined on $r$ then $h'$ is also defined on $r$. This is easily proven since no redex remove a definition in the heap.
+\item Whenever a value in the heap or in the store is modified, it is replaced with functions (redex 7), integers (redexes 4 and 7), values from the heap (redexes 2, 5, 6 and 8), values from the stack (redexes 1, 5, 6, 7, 8, 9, 10 and 11) or values reduced from an expression (redexes 12 and 13).
 \end{itemize}
 \end{enumerate}
 \end{proof}
@@ -1107,7 +1112,7 @@ Finally, we define the \emph{active} variables, $Av$, of an expression. This is 
 Expression & $Ov$ & $Av$ & $Fv$ \\ \hline
 $n$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\ \hline
 $X$ & $\{ X \}$ & $\{ X \}$ & $\{ X \}$ \\ \hline
-$X\cl{[}x\cl{]}$ & $\{ X \}$ & $\{ X, X^* \}$ & $\{ X, X^* \}$ \\ \hline
+$X\cl{[}x\cl{]}$ & $\{ X \}$ & $\{ X \}$ & $\{ X \}$ \\ \hline
 \begin{minipage}{2cm}
 \vspace{0.1cm}
 $\cl{if (} x \cl{) } a$ \\
@@ -1131,17 +1136,17 @@ $e$
 \vspace{0.1cm}
 \end{minipage} &
 $\begin{array}{l}
-Ov(e) \cup Ov(a)\\
+Ov(e) \cup Ov(a) - \{ x \} \\
 \qquad \qquad \text{if $x \in Ov(e)$}\\
 Ov(e) \qquad \text{ \ otherwise}
 \end{array}$
 &
 $\begin{array}{l}
-Av(e) \cup Av(a)\\
+Av(e) \cup Av(a) - \{ x \} \\
 \qquad \qquad \text{if $x \in Av(e)$}\\
 Av(e) \qquad \text{ \ otherwise}
 \end{array}$
-& $Fv(a) \cup Fv(e)$ \\ \hline
+& $Fv(a) \cup Fv(e) - \{ x \} $ \\ \hline
 \end{tabular}
 \end{center}
 \def\arraystretch{1}
@@ -1158,11 +1163,11 @@ Simple induction proof on the expression form.
 
 
 
-\subsection{Update context}
+\subsection{Deadness analysis of update context}
 
 The advantage of using contexts is to be able to place critical expressions like updates into a context where the evaluation order is well defined and we can identify expression evaluated before and after the reduction of a critical redex like a function call or a destructive update. These two being the only redexes that can modify the heap store in place.\\
 
-We introduce \emph{update contexts} as an expression with a single occurence of a hole:
+We introduce \emph{update contexts} as an expression with a single occurrence of a hole:
 \begin{enumerate}
 \itemsep-0.2em
 \item $\ucont{}$
@@ -1172,30 +1177,112 @@ We introduce \emph{update contexts} as an expression with a single occurence of 
 \item $ \cl{if (} x \cl{) } a \cl{ else } U $
 \end{enumerate}
 
+To define which update can be made destructively, we now consider the set $Dv(U)(X)$ of the variables that might point to the variable in the context $U$. The idea is that to be able to update $X$ in a context $U$, we actually need to be able to update all $Dv(U)(X)$ as well.
 
-The variables that may be aliased to a variable $X$, in a context $U$ is defined as 
 \begin{eqnarray*}
-Lv(\ucont{} ) &:=& \emptyset \\
-Lv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Lv(U) \cup ( Fv(e) - \{ x \} ) \\
-Lv( \cl{set(} x \cl{, } a \cl{); } U ) &:=& Lv(U) \cup \left\lbrace \begin{array}{ll}
-Av(a) & \text{if $x \in Lv(U)$.} \\
+Dv(\ucont{} ) &:& X \mapsto \{ X \} \\
+Dv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Dv(U) \\
+Dv( \cl{set(} x \cl{, } a \cl{); } U )(X) &:=& Dv(U)(X) \cup \left\lbrace \begin{array}{ll}
+Ov(a) & \text{if $x \in Dv(U)(X)$.} \\
 \emptyset & \text{otherwise.}
 \end{array} \right. \\
-Lv( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Lv(U) \\
-Lv( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Lv(U) 
+Dv( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Dv(U) \\
+Dv( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Dv(U) 
 \end{eqnarray*}
 
-The variables live in a context are defined as the variables that are 
+
+
+For $X$ a variable and $U$ a context, we also consider the set of critical variables $Cv(U)(X)$ containing $Dv(U)(X)$ and close under the relation $\forall x \in Cv(U)(X), Dv(U)(x) \subset Cv(U)(X)$. This includes the variable that may be aliased to $X$ and the variables that may be aliased to these variables, and so on.\\
+
+We refer to the liveness analysis of a context $U$ as the function $LA$ such that $LA(U)(X)$ is the set of variables such that if one is live in the context $U$, then $X$ is also live in that same context. $\perp$ meaning that the variable is live without condition. $\perp \cup S := \perp$ and $\perp \cap S := S$.
 \begin{eqnarray*}
-Lv(\ucont{} ) &:=& \emptyset \\
-Lv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Lv(U) \cup ( Fv(e) - \{ x \} ) \\
-Lv( \cl{set(} x \cl{, } a \cl{); } U ) &:=& Lv(U) \cup \left\lbrace \begin{array}{ll}
-Av(a) & \text{if $x \in Lv(U)$.} \\
+LA(\ucont{} )(X) &:=& \{ X \} \\
+LA( \cl{set(} x \cl{, } U \cl{); } e )(X) &:=& 
+\left\lbrace \begin{array}{ll}
+LA(U)(X) & \text{if $LA(U)(X) \cap Fv(e) = \emptyset$.} \\
+\perp & \text{otherwise.}
+\end{array} \right. \\
+LA( \cl{set(} x \cl{, } a \cl{); } U )(X) &:=& LA(U)(X) \cup \left\lbrace \begin{array}{ll}
+Av(a) & \text{if $x \in LA(U)(X)$.} \\
 \emptyset & \text{otherwise.}
 \end{array} \right. \\
-Lv( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Lv(U) \\
-Lv( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Lv(U) 
+LA( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& LA(U) \\
+LA( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& LA(U)
 \end{eqnarray*}
+
+The variables live in a context are defined as the variables that are free in the expression that could be evaluated after the hole the in the context. It also contained variables from expressions evaluated before the context that are still active in the context because trapped in the definition of a live variable.
+$$ Lv(U) := \{ x \ | \ LA(U)(x) = \perp \} $$
+
+%\begin{eqnarray*}
+%Lv(\ucont{} ) &:=& \emptyset \\
+%Lv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Lv(U) \cup Fv(e) \\
+%Lv( \cl{set(} x \cl{, } a \cl{); } U ) &:=& Lv(U) \cup \left\lbrace \begin{array}{ll}
+%Av(a) & \text{if $x \in Lv(U)$.} \\
+%\emptyset & \text{otherwise.}
+%\end{array} \right. \\
+%Lv( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Lv(U) \\
+%Lv( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Lv(U) 
+%\end{eqnarray*}
+
+When we consider turning a non destructive update $X\cl{[(}x\cl{) := } \cl{y} \cl{]}$ in a context $U$ into a destructive update, we want to make sure the following never happen:
+For each critical variable $x \in Cv(U)(X)$, $x$ is not live in the context.
+
+
+
+
+
+
+\subsubsection{Analysis}
+
+We consider here that $f$ is a function which declaration doesn't contain any destructive update. The naive translation from PVS to this language only perform non destructive updates.
+
+Intuitively, if a function $f\cl{(}f_1\cl{, } ... \cl{, } f_n\cl{) = } e$ contains a non destructive update in a context $e = U\ucont{X\cl{[(}x\cl{) := }y\cl{]}}$. That update can be turned into a destructive update if none of the variables that may be aliased to $X$ are live in the context.
+$$ Cv(U)(X) \cap Lv(U) = \emptyset $$
+This way all this variables that may point to $X$ are never used after the update. Since they are the only variables whose evaluation is modified by making the update destructive, we can say that this is a safe transformation.\\
+
+The problem is that some of these variables possibly pointing to $X$ might be included in the set of arguments of $f$: $\{f_1, ... , f_n\}$. And we can't assume anything about these variables since we don't have any information regarding the context in which the function $f$ is called.\\
+
+We define two versions of all function declared. A non destructive version $f$ with body $e_{nd}$ and a destructive version $f^d$ with body $e_d$.
+Both new definitions may only differ from the original body $e$ of $f$ in some very specific substitutions: non destructive updates in $e$ may be destructive in $e_{nd}$ and $e_d$ and function calls to a function $g$ may become function calls to $g^d$ with the same arguments in $e_d$ and $e_{nd}$.\\
+
+These functions use two different strategies:
+\begin{itemize}
+\item The second consists in allowing destructive updates of variables that could be aliased arguments. We however keep track of these arguments and only call this function when we are sure the arguments are safe in the context of the call. We over approximate with $Ov(e)$ the set of all variables that are involved in a destructive update or are destructive arguments in a call to a destructive function:
+$$ Ov(e) \ \ \supset \ \ \left( \bigcup_{e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]} }}  Cv(U)(X) \right) \ \ \cup \ \ \left( \bigcup_{e_d = U\ucont{g\cl{(} x_1\cl{,} ... \cl{,} x_n \cl{)}}} Cv(U)( \{ x_i | g_i \in BA(g) \}) \right)$$
+The yields the definition $e_d$ of $f^d$ verifying the following properties:
+\begin{itemize}
+\item $\forall U, X, x, y$, such that ,
+\begin{eqnarray*}
+e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} & \Longrightarrow & Cv(U)(X) \cap Lv(U) = \emptyset \\
+e_d = U\ucont{X\cl{[(}x \cl{) := } y \cl{]}} & \Longrightarrow & Cv(U)(X) \cap Lv(U) \neq \emptyset
+\end{eqnarray*}
+\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$, such that $e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}}$, $\forall i \neq j$,
+\begin{eqnarray*}
+g^d_i \in BA(g^d) & \Longrightarrow & Cv(U)(x_i) \cap Lv(U) = \emptyset \\
+g^d_i \in BA(g^d) \text{ and } g^d_j \in BA(g^d) & \Longrightarrow & Cv(U)(x_i) \cap Cv(U)(x_j) = \emptyset
+\end{eqnarray*}
+\end{itemize}
+\item The first consists in forbidding the use of destructive updates which argument may be pointing to by arguments. This is equivalent to saying that all arguments of non destructive functions are live in all contexts (or just in the empty context).
+This yields the new definition $e_{nd}$ of $f$ verifying hte following properties:
+\begin{itemize}
+\item $\forall U, X, x, y$,
+$$ e_{nd} = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \ \Longrightarrow \ \  Cv(U)(X) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
+\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$,
+$$ e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}} \ \ \Longrightarrow \ \  Cv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
+\end{itemize}
+\end{itemize}
+\begin{theorem}
+For all non destructive version of a function $f$, $ BA(f) = \emptyset$.
+\end{theorem}
+
+
+\subsubsection{Difference with the previous analysis}
+
+Difference with Shankar \cite{shankar02} and Pavol's \cite{pavol} previous analysis of PVS:
+\begin{itemize}
+\item The non destructive version of a function is also optimized and might have some destructive updates or function calls.
+\item The destructive function does not have all its function call destructive.
+\end{itemize}
 
 
 
@@ -1218,61 +1305,6 @@ If $<e_1, (s_1, h_1)> \ \longrightarrow \ <e_2, (s_2, h_2)>$ then $<e_1, (s_1, h
 \begin{proof}
 It can easily be verified for every redex. When $a = U\ucont{b}$, we have $Lc(a) = Lc(U) \cup Lc(b)$ and the inductive step is proved .
 \end{proof}
-
-
-
-We define the set $Dv(U)(z)$ of all variables that may contain a reference to $z$ in a certain context $U$:
-\begin{eqnarray*}
-Dv(\ucont{})(z) &:=& \{ z \} \\
-Dv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Dv(U) \\
-Dv( \cl{set(} x \cl{, } a \cl{); } U )(z) &:=& Dv(U)(z) \cup
-  \left\lbrace \begin{array}{ll}
-  \emptyset & \text{if } (Ov(a) \cup \{ x \}) \cap Dv(U)(z) = \emptyset \\
-  (Ov(a) \cup \{ x \}) & \text{ otherwise.}
-  \end{array} \right. \\
-Dv(\cl{if (} x \cl{) } U \cl{ else } b) &:=& Dv(U) \\
-Dv(\cl{if (} x \cl{) } a \cl{ else } U) &:=& Dv(U) 
-\end{eqnarray*}
-
-\subsubsection{Analysis}
-
-We consider here that $f$ is a function which declaration doesn't contain any destructive update. The naive translation from PVS to this language only perform non destructive updates.
-
-Intuitevely, if a function $f\cl{(}f_1\cl{, } ... \cl{, } f_n\cl{) = } e$ contains a non destructive update in a context $e = U\ucont{X\cl{[(}x\cl{) := }y\cl{]}}$. That update can be turned into a destructive update if the variables that may be aliased to $X$ are not live in the context.
-$$ Dv(U)(X) \cap Lv(U) = \emptyset $$
-This way all this variables that may point to $X$ are never used after the update. Since they are the only variables whose evaluation is modified by making hte update destructive, we can say that this is a safe transformation.\\
-
-The problem is that some of these variables possibly pointing to $X$ might be included in the set of arguments of $f$: $\{f_1, ... , f_n\}$. And we can't assume anything about these variables since we don't have any information regarding the context in which the function $f$ is called.\\
-
-We define two functions. A non destructive version $f$ with body $e_{nd}$ and a destructive version $f^d$ with body $e_d$.
-Both new definitions only differ from the original body $e$ of $f$ in some substitution: non destructive updates in $e$ may be destructive in $e_{nd}$ and $e_d$ and some function calls to a function $g$ may become function calls to $g^d$ with the same arguments in $e_d$ and $e_{nd}$.\\
-
-These functions use two different strategies:
-\begin{itemize}
-\item The second consists in allowing destructive updates of variables that could be aliased arguments. We however keep track of these arguments and only call this function when we are sure the arguments are safe in the context of the call. We define the $BA$ function on function declarations:
-\begin{eqnarray*}
-BA(f) &=& \bigcup_{e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]} }}  Dv(U)(X) \\
-& \cup & \bigcup_{e_d = U\ucont{g\cl{(} x_1\cl{,} ... \cl{,} x_n \cl{)}}} Dv(U)( \{ x_i | g_i \in BA(g) \})
-\end{eqnarray*}
-The yields the definition $e_d$ of $f^d$ verifying the following properties:
-\begin{itemize}
-\item $\forall U, X, x, y$,
-$$ e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \ \Longrightarrow \ \  Dv(U)(X) \cap Lv(U) = \emptyset $$
-\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$,
-$$ e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}} \ \ \Longrightarrow \ \  Dv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap Lv(U) = \emptyset $$
-\end{itemize}
-\item The first consists in forbidding the use of destructive updates which argument may be pointing to by arguments. This is equivalent to saying that all arguments of non destructive functions are live in all contexts (or just in the empty context).
-This yields the new definition $e_{nd}$ of $f$ verifying hte following properties:
-\begin{itemize}
-\item $\forall U, X, x, y$,
-$$ e_{nd} = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \ \Longrightarrow \ \  Dv(U)(X) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
-\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$,
-$$ e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}} \ \ \Longrightarrow \ \  Dv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
-\end{itemize}
-\end{itemize}
-\begin{theorem}
-For all non destructive version of a function $f$, $ BA(f) = \emptyset$.
-\end{theorem}
 
 
 
@@ -1466,7 +1498,7 @@ Correcting translator PVS to SMT-LIB
 \begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
 \hline
              & \cl{A} \safe & \cl{A} not \safe \\ \hline
-\cl{A} \mut  & Replace every occurence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
+\cl{A} \mut  & Replace every occurrence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
 B = GC_malloc(...);
 for(i ...) {
   B[i] = A[i];
@@ -1497,13 +1529,13 @@ for(i ...) {
 \begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
 \hline
              & \cl{A} \safe & \cl{A} not \safe \\ \hline
-\cl{A} \mut  & Replace every occurence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
+\cl{A} \mut  & Replace every occurrence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
 B = GC_malloc(...);
 for(i ...) {
   B[i] = A[i]
 }
 \end{lstlisting} \\ \hline
-\cl{A} \nmut & Replace every occurence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
+\cl{A} \nmut & Replace every occurrence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
 B = GC( A );
 \end{lstlisting}
 If \cl{B} is flagged \dupl then \cl{A} must be too.

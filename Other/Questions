@@ -1,3 +1,23 @@
+
+
+Dv(U)(xi) = { variables that needs to be bang for xi to be bang }  or bottom
+
+Dv({}) = x |-> {x}
+
+Dv( set(x,a); U )(xi) = IF exists y in Av(a) cap Dv(U)(xi) then bottom
+                        ELSE IF x in Dv(U)(xi) THEN  Dv(U)(xi) cup Ov(a)   (  - {x}  ??)
+                        ELSE Dv(U)(xi)
+Dv( set(x,U); e ) = Dv(U)
+Dv( if (x) then a else U) = Dv(U)
+
+Lv( set(x,a); U ) = Lv(U) cup IF x in Lv(U) THEN Av(a) ELSE emptyset
+Lv( set(x,U); e ) = Fv(e) cup Lv(U)
+Lv( {} ) = emptyset
+
+
+
+
+
 Parser : PVS code -> internal representation
 Inverse transformation possible ?
 
