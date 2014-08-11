@@ -1605,8 +1605,11 @@ f(A)
 
 
 \newpage
-\section{Examples}
+\
+\newpage
 
+\section{Examples}
+Here are a few simple example to get an idea of the optimization that occur on the intermediate language. Following is a complete example of a program generating an array of pseudo random numbers and sorting it with the insertion sort algorithm.
 
 \begin{figure}[!ht]
 \begin{tabular}{|p{5.2cm}|p{5.8cm}|p{6cm}|}
@@ -1615,7 +1618,8 @@ f(A)
 PVS code
 \end{center} &
 \begin{center}
-Intermediate language code
+Intermediate language code\\
+(before analysis - with types)
 \end{center} &
 \begin{center}
 C code generated
@@ -1624,9 +1628,8 @@ C code generated
 \begin{lstlisting}
 f(A:Arr):Arr = A
 \end{lstlisting} &
-\cl{f: ( (A, int*) ) -> int*} \newline
-\cl{set(result, A)} \newline
-\cl{return(result)} &
+\cl{f: ( int* A ) -> int*} \newline
+\cl{A} &
 \begin{lstlisting}
 int* f(int* A) {
   return A;
@@ -1637,10 +1640,9 @@ int* f(int* A) {
 f(A:Arr):Arr =
   let B = A in B
 \end{lstlisting} &
-\cl{f: ( (A, int*) ) -> int*} \newline
-\cl{set(B, A)} \newline
-\cl{set(result, B)} \newline
-\cl{return(result)} &
+\cl{f: ( int* A ) -> int*} \newline
+\cl{set(B, A);} \newline
+\cl{B} &
 \begin{lstlisting}
 int* f(int* A) {
   return A;
@@ -1652,10 +1654,9 @@ f(A:Arr):Cint =
  let B = A in
   A(0) + B(0)
 \end{lstlisting} &
-\cl{f: ( (A, int*) ) -> int} \newline
-\cl{set(B, A)} \newline
-\cl{set(result, +( A(0), B(0) ) )} \newline
-\cl{return(result)} &
+\cl{f: ( int* A ) -> int} \newline
+\cl{set(B, A);} \newline
+\cl{+( A(0), B(0) )} &
 \begin{lstlisting}
 int* f(int* A) {
   int* B = (int*) GC( A );
@@ -1671,12 +1672,12 @@ f(A:Arr):Arr =
   let B = A in
     A WITH [(0) := B(0) ]
 \end{lstlisting} &
-\cl{f: ( (A, int*) ) -> int} \newline
-\cl{set(B, A)} \newline
-\cl{set(L, 0)} \newline
-\cl{set(R, B(0) )} \newline
-\cl{update(result, A, L, R)} \newline
-\cl{return(result)} &
+\cl{f: ( int* A ) -> int} \newline
+\cl{set(B, A);} \newline
+\cl{set(L, 0);} \newline
+\cl{set(R, B(0) );} \newline
+\cl{set(result, A[(L) := R] );} \newline
+\cl{result} &
 \begin{lstlisting}
 int* f_d(int* A) {
   int* B = GC_malloc(...);
@@ -1684,10 +1685,10 @@ int* f_d(int* A) {
      B[i] = A[i];
   int L = 0;
   int R = B[0];
-  int* result = GC( A );
-  result[L] = R;
   GC_free(B);
+  int* result = GC( A );
   GC_free(A);
+  result[L] = R;
   return result;
 }
 \end{lstlisting} \\ \hline
@@ -1713,12 +1714,10 @@ C code generated
 f(A:Arr):Arr =
   A WITH [(0) := 0]
 \end{lstlisting} &
-\cl{f: ( (A, int*) ) -> int*} \newline
-\cl{set(L, 0)} \newline
-\cl{set(R, 0)} \newline
-\cl{copy(result, A)} \newline
-\cl{update(result, L, R)} \newline
-\cl{return(result)} &
+\cl{f: ( int* A ) -> int*} \newline
+\cl{set(L, 0);} \newline
+\cl{set(R, 0);} \newline
+\cl{A[(L) := R]} &
 \begin{lstlisting}
 int* f(int* A) {
   int L = 0, R = 0;
@@ -1748,15 +1747,12 @@ f(A:Arr):Arr =
  in A WITH[(0) := B(0)]
 \end{lstlisting} &
 \cl{f: ( (A, int*) ) -> int*} \newline
-\cl{set(L1, 0)} \newline
-\cl{set(R1, 0)} \newline
-\cl{copy(B, A)} \newline
-\cl{update(B, L1, R1)} \newline
-\cl{set(L2, 0)} \newline
-\cl{set(R2, B(0))} \newline
-\cl{copy(result, A)} \newline
-\cl{update(result, L1, R1)} \newline
-\cl{return(result)} &
+\cl{set(L1, 0);} \newline
+\cl{set(R1, 0);} \newline
+\cl{set(B, A[(L1) := R1] );} \newline
+\cl{set(L2, 0);} \newline
+\cl{set(R2, B(0));} \newline
+\cl{A[(L2) := R2] );} &
 \begin{lstlisting}
 int* f(int* A) {
   int R1 = 0, L1 = 0;
@@ -1789,5 +1785,132 @@ int* f_d(int* A) {
 \end{tabular}
 \caption{Examples of copying variables}
 \end{figure}
+
+
+
+\newpage
+\begin{figure}
+\begin{lstlisting}[language=TeX]
+benchmark : THEORY
+BEGIN
+
+% We use the Lehmer random number generator
+% with the following parameters
+
+% n      = 59557   big prime number picked from
+%                  http://primes.utm.edu/lists/small/10000.txt
+% length = 1000
+% g      = 12345
+% X_0    = 9876
+
+  Val : TYPE = subrange(0, 59557)
+  Ind  : TYPE = below(20000)
+  Arr  : TYPE = [ Ind -> Val ]
+  
+  A : VAR Arr
+  i : VAR Ind
+  v : VAR Val
+  
+  init(A, i, v): RECURSIVE Arr =
+    let B = A with [(i) := v] in
+      if i >= 999 then B	
+      else init(B, i+1, rem(59557)(12345 * v) ) endif
+  MEASURE 999 - i
+  
+  J :Arr = lambda(k:Ind): 999 - k
+  Z :Arr = lambda(x:Ind) : 0
+  T :Arr = init(Z, 0, 9876)
+  
+  
+  insert(A, v, i): RECURSIVE Arr =
+    IF (i = 0 OR v >= A(i - 1))
+    THEN A WITH [(i) := v]
+    ELSE insert(A WITH [(i) := A(i - 1)], v, i - 1)
+    ENDIF
+    MEASURE i
+
+  insort_rec(A, (n:upto(1000)) ): RECURSIVE Arr =
+    IF n < 1000 THEN
+      let An = A(n) in
+        insort_rec( insert(A, An, n), n + 1 )
+    ELSE A ENDIF
+    MEASURE 1000 - n
+
+  insort(A): Arr = insort_rec(A, 0)
+  
+  tsort: Val = insort(T)(0)
+  jsort: Val = insort(J)(0)
+  
+END benchmark
+\end{lstlisting}
+\caption{Full PVS example - C translation}
+\end{figure}
+
+
+\begin{figure}
+\begin{lstlisting}
+unsigned long int* init(unsigned long int* A, int i, unsigned long int v) {
+  A[i] = v;
+  if ((i >= SIZE_1)) {
+    return A;
+  } else {
+    return init( A , (i + 1) , ((12345 * v) % 59557) );
+  }
+}
+
+unsigned long int J(int k) {
+  return (unsigned long int) (SIZE_1 - k);
+}
+
+unsigned long int Z(int x) {
+  return (unsigned long int) 0;
+}
+
+unsigned long int* T() {
+  unsigned long int* aux = GC_malloc(SIZE, sizeof(unsigned long int) );
+  int i;
+  for(i = 0; i < SIZE; i++)
+    aux[i] = Z( i );
+  return init( aux , 0 , (unsigned long int) 9876 );
+}
+
+unsigned long int* insert(unsigned long int* A, unsigned long int v, int i) {
+  if (((i == 0) || (v >= A[(i - 1)]))) {
+    A[i] = v;
+    return A;
+  } else {
+    unsigned long int res = A[(i - 1)];
+    A[i] = res;
+    return insert( A , v , (i - 1) );
+  }
+}
+
+unsigned long int* insort_rec(unsigned long int* A, int n) {
+  if ((n < SIZE)) {
+    unsigned long int An = A[n];
+    return insort_rec( insert( A , An , n ) , (n + 1) );
+  else
+    return A;
+}
+
+unsigned long int* insort(unsigned long int* A) { return insort_rec( A , 0 ); }
+
+unsigned long int tsort() { return insort( T() )[0]; }
+
+unsigned long int jsort() {
+  unsigned long int* aux;
+  aux = GC_malloc(SIZE, sizeof(unsigned long int) );
+  int i;
+  for(i = 0; i < SIZE; i++) {
+    aux[i] = J( i );
+  }
+  return insort( aux )[0];
+}
+\end{lstlisting}
+\caption{Full PVS example - C translation}
+\end{figure}
+
+
+
 
 \end{document}
