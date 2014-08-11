@@ -1193,67 +1193,53 @@ We introduce \emph{update contexts} as an expression with a single occurrence of
 \item $ \cl{if (} x \cl{) } a \cl{ else } U $
 \end{enumerate}
 
-To define which update can be made destructively, we now consider the critical analysis $CA(U)(X)$ as the set of the variables that might point to the variable $X$ in the context $U$. The idea is that to be able to update $X$ in a context $U$, we actually need to be able to update all $Dv(U)(X)$ as well.
-$\perp$ meaning that the variable can't be updated destructively. $\perp \cup S := \perp$ and $\perp \cap S := S$.
+To define which update can be made destructively, we now build a reference graph in a context $U$. We define the pointer analysis of $U$ as $PA(U)$ where $PA(U)(X)$ is the set of all variables $X$ may point to in the context $U$. \\
 
+This will allow us to define the variables free in this context as well as the set of variable that can be modified by a destructive update.
 \begin{eqnarray*}
-Dv(\ucont{} ) &:& X \mapsto \{ X \} \\
-Dv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Dv(U) \\
-Dv( \cl{set(} x \cl{, } a \cl{); } U )(X) &:=& Dv(U)(X) \cup \left\lbrace \begin{array}{ll}
-\perp & \text{if $Dv(U)(X) \cap Av(a) \neq \emptyset$.} \\
-Av(a) & \text{if $x^* \in Dv(U)(X)$.} \\
-Ov(a) & \text{if $x \in Dv(U)(X)$.} \\
+PA(\ucont{} ) &:& \left| \begin{array}{lcl}
+X   & \mapsto & \{ X, X^* \} \\
+X^* & \mapsto & \{ X^* \}
+\end{array}  \right. \\
+PA( \cl{set(} x \cl{, } U \cl{); } e ) &:=& PA(U) \\
+PA( \cl{set(} x \cl{, } a \cl{); } U )(X) &:=& PA(U)(X) \cup \left\lbrace \begin{array}{ll}
+\{ x, x^* \} & \text{if $X \in Ov(a)$.} \\
+\{ x^* \} & \text{if $X \in Av(a)$.} \\
+Av(a) & \text{if $x^* \in PA(U)(X)$.} \\
 \emptyset & \text{otherwise.}
 \end{array} \right. \\
-Dv( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Dv(U) \\
-Dv( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Dv(U) 
+PA( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& PA(U) \\
+PA( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& PA(U) 
 \end{eqnarray*}
 
 
 
-For $X$ a variable and $U$ a context, we also consider the set of critical variables $Cv(U)(X)$ containing $Dv(U)(X)$ and close under the relation $\forall x \in Cv(U)(X), Dv(U)(x) \subset Cv(U)(X)$. This includes the variable that may be aliased to $X$ and the variables that may be aliased to these variables, and so on.\\
+For $X$ a variable and $U$ a context, we also consider the set of critical variables $Cv(U)(X)$ smaller set such that :
+$$\forall Y \ , \ \ PA(U)(Y) \subset Cv(U)(X) \ \text{ or } PA(U)(Y) \cap Cv(U)(X) = \emptyset $$
+This set contain all variables that may point to $X$ and all variable that may point to these variables and so on. \\
 
-We refer to the liveness analysis of a context $U$ as the function $LA$ such that $LA(U)(X)$ is the set of variables such that if one is live in the context $U$, then $X$ is also live in that same context. $\perp$ meaning that the variable is live without condition.
+
+The variables live in a context are the variables that could be evaluated after the hole the in the context and the variable that these variables may point to and so on.\\
+
+When we consider turning a non destructive update $X\cl{[(}x\cl{) := } \cl{y} \cl{]}$ in a context $U$ into a destructive update, we want to make sure that critical variables are not live $U$.
+$$ Cv(U)(X) \cap Lv(U) = \emptyset $$
+The set $Lv(U)$ of the variables live in a context $U$ is defined as the smallest set containing $Lv^0(U)$
 \begin{eqnarray*}
-LA(\ucont{} )(X) &:=& \{ X \} \\
-LA( \cl{set(} x \cl{, } U \cl{); } e )(X) &:=& 
-\left\lbrace \begin{array}{ll}
-LA(U)(X) & \text{if $LA(U)(X) \cap Fv(e) = \emptyset$.} \\
-\perp & \text{otherwise.}
-\end{array} \right. \\
-LA( \cl{set(} x \cl{, } a \cl{); } U )(X) &:=& LA(U)(X) \cup \left\lbrace \begin{array}{ll}
-Av(a) & \text{if $x \in LA(U)(X)$.} \\
-\emptyset & \text{otherwise.}
-\end{array} \right. \\
-LA( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& LA(U) \\
-LA( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& LA(U)
+Lv^0(\ucont{} ) &:=& \emptyset \\
+Lv^0( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Fv(e) \cup Lv^0(U) \\
+Lv^0( \cl{set(} x \cl{, } a \cl{); } U )(X) &:=& Lv^0(U) \\
+Lv^0( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Lv^0(U) \\
+Lv^0( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Lv^0(U)
 \end{eqnarray*}
-
-The variables live in a context are defined as the variables that are free in the expression that could be evaluated after the hole the in the context. It also contained variables from expressions evaluated before the context that are still active in the context because trapped in the definition of a live variable.
-$$ Lv(U) := \{ x \ | \ LA(U)(x) = \perp \} $$
-
-%\begin{eqnarray*}
-%Lv(\ucont{} ) &:=& \emptyset \\
-%Lv( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Lv(U) \cup Fv(e) \\
-%Lv( \cl{set(} x \cl{, } a \cl{); } U ) &:=& Lv(U) \cup \left\lbrace \begin{array}{ll}
-%Av(a) & \text{if $x \in Lv(U)$.} \\
-%\emptyset & \text{otherwise.}
-%\end{array} \right. \\
-%Lv( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Lv(U) \\
-%Lv( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Lv(U) 
-%\end{eqnarray*}
-
-When we consider turning a non destructive update $X\cl{[(}x\cl{) := } \cl{y} \cl{]}$ in a context $U$ into a destructive update, we want to make sure the following never happen:
-For each critical variable $x \in Cv(U)(X)$, $x$ is not live in the context.
-
-
+an close under 
+$$ PA(U)(Lv(U)) \subset Lv(U) $$
 
 
 
 
 \subsubsection{Analysis}
 
-We consider here that $f$ is a function which declaration doesn't contain any destructive update. The naive translation from PVS to this language only perform non destructive updates.
+We consider here a function $f$ which declaration body $e$ doesn't contain any destructive update before the analysis. The reason is that a safe, naive translation from PVS to this language would only perform non destructive updates.
 
 Intuitively, if a function $f\cl{(}f_1\cl{, } ... \cl{, } f_n\cl{) = } e$ contains a non destructive update in a context $e = U\ucont{X\cl{[(}x\cl{) := }y\cl{]}}$. That update can be turned into a destructive update if none of the variables that may be aliased to $X$ are live in the context.
 $$ Cv(U)(X) \cap Lv(U) = \emptyset $$
@@ -1261,67 +1247,85 @@ This way all this variables that may point to $X$ are never used after the updat
 
 The problem is that some of these variables possibly pointing to $X$ might be included in the set of arguments of $f$: $\{f_1, ... , f_n\}$. And we can't assume anything about these variables since we don't have any information regarding the context in which the function $f$ is called.\\
 
+We define the bang analysis $BA(f)$ as the set of all variables that are involved in a destructive update or are destructive arguments in a call to a destructive function:
+$$ BA(f) \ \ := \ \ \left( \bigcup_{e = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]} }}  Cv(U)(X) \right) \ \ \cup \ \ \left( \bigcup_{e = U\ucont{g\cl{(} x_1\cl{,} ... \cl{,} x_n \cl{)}}} Cv(U)( \{ x_i | g_i \in BA(g) \}) \right)$$
+Basically $BA(f)$ is the set of all critical variables in the evaluation of a function call to $f$.
+
 We define two versions of all function declared. A non destructive version $f$ with body $e_{nd}$ and a destructive version $f^d$ with body $e_d$.
 Both new definitions may only differ from the original body $e$ of $f$ in some very specific substitutions: non destructive updates in $e$ may be destructive in $e_{nd}$ and $e_d$ and function calls to a function $g$ may become function calls to $g^d$ with the same arguments in $e_d$ and $e_{nd}$.\\
 
 These functions use two different strategies:
 \begin{itemize}
-\item The second consists in allowing destructive updates of variables that could be aliased arguments. We however keep track of these arguments and only call this function when we are sure the arguments are safe in the context of the call. We over approximate with $Ov(e)$ the set of all variables that are involved in a destructive update or are destructive arguments in a call to a destructive function:
-$$ Ov(e) \ \ \supset \ \ \left( \bigcup_{e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]} }}  Cv(U)(X) \right) \ \ \cup \ \ \left( \bigcup_{e_d = U\ucont{g\cl{(} x_1\cl{,} ... \cl{,} x_n \cl{)}}} Cv(U)( \{ x_i | g_i \in BA(g) \}) \right)$$
+\item The second consists in allowing destructive updates of variables that could be aliased arguments. We however keep track of these arguments and only call this function when we are sure the arguments are safe in the context of the call. 
 The yields the definition $e_d$ of $f^d$ verifying the following properties:
 \begin{itemize}
-\item $\forall U, X, x, y$, such that ,
-\begin{eqnarray*}
-e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} & \Longrightarrow & Cv(U)(X) \cap Lv(U) = \emptyset \\
-e_d = U\ucont{X\cl{[(}x \cl{) := } y \cl{]}} & \Longrightarrow & Cv(U)(X) \cap Lv(U) \neq \emptyset
-\end{eqnarray*}
-\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$, such that $e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}}$, $\forall i \neq j$,
-\begin{eqnarray*}
-g^d_i \in BA(g^d) & \Longrightarrow & Cv(U)(x_i) \cap Lv(U) = \emptyset \\
-g^d_i \in BA(g^d) \text{ and } g^d_j \in BA(g^d) & \Longrightarrow & Cv(U)(x_i) \cap Cv(U)(x_j) = \emptyset
-\end{eqnarray*}
+\item $\forall U, X, x, y$, such that $e = U\ucont{X\cl{[(}x \cl{) := } y \cl{]}}$,
+$$ e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \Longleftrightarrow \ Cv(U)(X) \cap Lv(U) = \emptyset $$
+\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$, such that $e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}}$,
+$$ Cv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap Lv(U) = \emptyset $$
+$$ BA(g^d) \ni g^d_i \neq g^d_j \in BA(g^d) \Longrightarrow PA(U)(x_i) \cap PA(U)(x_j) = \emptyset$$
 \end{itemize}
 \item The first consists in forbidding the use of destructive updates which argument may be pointing to by arguments. This is equivalent to saying that all arguments of non destructive functions are live in all contexts (or just in the empty context).
-This yields the new definition $e_{nd}$ of $f$ verifying hte following properties:
+This yields the new definition $e_{nd}$ of $f$ verifying the following properties:
 \begin{itemize}
-\item $\forall U, X, x, y$,
-$$ e_{nd} = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \ \Longrightarrow \ \  Cv(U)(X) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
-\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$,
-$$ e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}} \ \ \Longrightarrow \ \  Cv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
+\item $\forall U, X, x, y$, such that $e = U\ucont{X\cl{[(}x \cl{) := } y \cl{]}}$
+$$ e_{nd} = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \ \Longleftrightarrow \ \  Cv(U)(X) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
+\item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$, such that $e_{nd} = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}}$
+$$ Cv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
+$$ BA(g^d) \ni g^d_i \neq g^d_j \in BA(g^d) \Longrightarrow PA(U)(x_i) \cap PA(U)(x_j) = \emptyset$$
 \end{itemize}
 \end{itemize}
 \begin{theorem}
 For all non destructive version of a function $f$, $ BA(f) = \emptyset$.
 \end{theorem}
 
+\subsubsection{Proof of bisimulation}
 
-\subsubsection{Difference with the previous analysis of PVS}
+We define the accessible cells, from a variable $X$ given a store $S$ as the set of all references (heap store entries) that can be accessed from the variable $X$.
+$$ Ac(S)(X) := R \cap S^{\infty}(X)$$
+We extend that definition to expressions and updates
+\begin{eqnarray*}
+Ac(S)(e) &:=& Ac(S)( Av(e) ) \\
+Ac(S)(U) &:=& Ac(S)( Lv(U) )
+\end{eqnarray*}
+It correspond to the only references already created in the heap store that can still be accessed in the context or expression. \\
 
-Difference with Shankar \cite{shankar02} and Pavol's \cite{pavol} previous analysis of PVS:
+The proof of correctness relies on three main invariants:
+\begin{enumerate}
+\item The results of function calls to $f$ and $f_d$ have the same evaluation. This means they can't be told apart by looking only at the value of the result. However they differ in their use of the arguments.
+\item The only references which value may be modified during the evaluation of the call of $f(x_i)$ with a store $S$ is $\bigcup_{f_i \in BA(f)} Ac(S)(x_i)$.
+\item The union above is always a disjoint union.
+\end{enumerate}
+These properties are obviously true before the analysis since $f = f^d$, $BA(f) = \emptyset$ for all function and no reference ever have its value modified.\\
+
+The destructive and non destructive versions of a function $f$ are built from the original definition $e$ by replacing function calls (updates can be considered as a function call). To prove the correctness of this algorithm we need to prove that the three invariants described above are preserved between programs before and after a single replacement. \\
+
+We consider the replacement of $g$ to $g^d$ in a function $f^d$ of body $e =  U\ucont{g\cl{(}x_i \cl{,} y_j \cl{,} z_k \cl{)}}$ with $x_i$ variables corresponding to the critical arguments $g_i \in BA(g)$, $y_j$ corresponding to arguments that are active in the body of $e$ and $z_k$ arguments that are not arrays or are not in either of the previous sets. \\
+
+We have the following hypothesis
 \begin{itemize}
-\item The non destructive version of a function is also optimized and might have some destructive updates or function calls.
-\item The destructive function does not have all its function call destructive.
+\item[$(H1)$] $ g^d_i \in BA(g^d) \Longrightarrow Cv(U)(x_i) \cap Lv(U) = \emptyset $ \ \ (Analysis)
+\item[$(H2)$] $BA(g^d) \ni g^d_i \neq g^d_j \in BA(g^d) \Longrightarrow PA(U)(x_i) \cap PA(U)(x_j) = \emptyset$ \ \ (Analysis)
+\item[$(H3)$] The only references which value may be modified during the evaluation of the call with a store $S$ is the union $\bigcup Ac(S)(x_i)$.
+\item[$(H4)$] The evaluation of the call with a store $S$ return the same result than if $g$ was called.
+\item[$(H5)$] $f$ is always going to be called in an evaluation context with a store such that the sets $Ac(S)(f_i)$ are disjoint.
 \end{itemize}
+\begin{proposition}
+For all store $S$ with which this function call is evaluated, the sets $Ac(S)(x_i)$ are disjoint.
+\end{proposition}
+\begin{proof}
+$(H2)$ and $(H5)$.
+\end{proof}
 
 
 
 
 
-\subsection{Analysis in term of references}
+This analysis would have worked as well for non destructive versions of functions and for the replacement of an update rather than a function call.
 
-We also define the live cells, $Lc(S)(U)$, in an update context $U$ for a given store $S$ as the smallest set of $R$ such that
-\begin{eqnarray*}
-R \cap S(Lv(U)) &\subset & Lc(S)(U) \\
-R \cap S(Lc(S)(U)) &\subset & Lc(S)(U)
-\end{eqnarray*}
-This set ca be computed using
-\begin{eqnarray*}
-Lc_0(S)(U) &:=& Lv(U) \\
-Lc_{k+1}(S)(U) &:=& R \cap (Lc_k(S)(U) \cup S( Lc_k(S)(U) ) ) \\
-Lc(S)(U) &:=& \lim_k Lc_k(S)(e) \subset R
-\end{eqnarray*}
-The live cells contain all the references that are accessible in a certain update context given a certain store $S$. All references that are not in this set do not have any influence on the evaluation of the expression.
-It correspond to the references already created in the heap store that can still be accessed in the context or expression.
+\subsubsection{Analysis in term of references}
+
+
 
 \begin{theorem}
 If $<e_1, (s_1, h_1)> \ \longrightarrow \ <e_2, (s_2, h_2)>$ then $<e_1, (s_1, h'_1)> \ \longrightarrow \ <e_2, (s_2, h'_2)>$ where $h'_i = h_i|_{Lc(S_1)(e_1)}$.
@@ -1332,29 +1336,13 @@ It can easily be verified for every redex. When $a = U\ucont{b}$, we have $Lc(a)
 
 
 
+\subsection{Difference with the previous analysis of PVS}
 
-
-\newpage
-\subsection{Draft}
-
-The translator from PVS to that intermediate language guarantees the following properties 
+Difference with Shankar \cite{shankar02} and Pavol's \cite{pavol} previous analysis of PVS:
 \begin{itemize}
-\item All arguments passed to a function are \emph{different} variables.
-\item Before the analysis, no destructive updates are used.
-\end{itemize} 
-
-For the need of the analysis, we enrich the state function with a reference counter $c:V \rightarrow \N$.
-
-
-\begin{theorem}
-If $<a, S>$ is \mut, and $<a, S> \ \longrightarrow <a', S'>$ then $<a', S'>$ is \mut.
-\end{theorem}
-
-
-A function $f$ is called \bang when
-$$ Ov([f]) \cap \{ f_1, ... , f_n \} = \emptyset $$
-This basically means that the output variables of any call to that function is the empty set.
-
+\item The non destructive version of a function is also optimized and might have some destructive updates or function calls.
+\item The destructive function does not have all its function call destructive.
+\end{itemize}
 
 
 
@@ -1367,12 +1355,18 @@ This basically means that the output variables of any call to that function is t
 \section{Conclusion}
 
 
+
+
+
+
+
+
 \subsection{Difficulties and successes}
 
-This project was a great challenge and an opportunity for me to conduct my own research on a subject I chose. The development of the working translator was also 
+This project was a great challenge and an opportunity for me to conduct my own autonomous research on a subject I chose. The development of the working translator was also the occasion for me to discover new tools, formal techniques and learn a lot about computer science in general.
 
 
-\subsubsection{Working with new languages and tools}
+\subsubsection*{Working with new languages and tools}
 
 To be able to translate PVS, I had to fully understand not only the syntax and semantics of the PVS language but also the structure of the PVS API written in Common Lisp. This means I also had to learn Common Lisp which I decided then to use to write the translator mostly because it made the integration of the native PVS parser and typechecker easier. Finally I had to discover the C language which I only had a basic knowledge of.
 
@@ -1409,7 +1403,7 @@ void norm(mpz_t result, mpz_t x, mpz_t y) {
 
 
 
-\subsection{What's left to be done ?}
+\subsection*{What's left to be done ?}
 
 One of my biggest regret was not having the time to finish the translator and fully implement closures.
 Some work is already done in that direction. We use a C structure to represent a closure:
@@ -1423,9 +1417,9 @@ struct r_list_int {
 
 
 
-\subsection{My stay at SRI}
+\subsection*{My stay at SRI}
 
-Besides the conception and implementation of the PVS to C compiler, my stay at SRI International was rich in interesting events.
+Besides the conception and implementation of the PVS to C translator, my stay at SRI International was rich in interesting events. 
 
 The first weeks of my stay were the occasion to discover PVS and Coq as I started working on a translator Coq to PVS. With Robin, we also wrote as an exercise a basic linear algebra library.
 
@@ -1441,10 +1435,6 @@ I've been included in the HACMS project which was very interesting.
 With other:
 Correcting translator PVS to SMT-LIB
 
-
-
-
-\subsubsection*{Draft}
 Discovering PVS :
 Translating Coq proofs to PVS
 PVS library for basic linear algebra
@@ -1454,7 +1444,6 @@ Contest week-end 14-15 June \\
 Summer School \\
 Parsing Lisp code -> generate HTML architecture file\\
 Correcting translator PVS to SMT-LIB
-\cite{pavol}
 
 
 
