@@ -88,9 +88,14 @@ hyperref=true,
 
 \newpage
 \
-\vspace{2in}
+\vspace{1.5in}
 \begin{abstract}
-PVS (standing for Prototype Verification System), is an Open Source project developped by CSL at SRI International and aiming to be both a semi-automated theorem prover and a programming language. 
+PVS (standing for Prototype Verification System), is an Open Source project developped by CSL at SRI International and aiming to be both a semi-automated theorem prover providing formal support for conceptualization and debugging in the early stages of the design of hardware or software systems and a programming language. The evaluation of PVS expressions relies so far on a build-in PVS interpreter based on Common Lisp, called "Ground Evaluator". In order to allow the integration of PVS code as well as its fast execution for debugging and testing purposes, we describe here a translator of a subset of PVS to the language C.\\
+
+The update of aggregate data structure, such as arrays, are frequent in functional programs and requires copying before being updated which is a significant source of space/time inefficiencies.
+However the execution of updates by copying is often redundant and could be safely implemented by means of destructive, inplace updates in an imperative program.
+We describe a method for analyzing and replacing the safe updates in an imperative program by destructive, inplace update.
+This method has been implemented to optimize the PVS translator.
 \end{abstract}
 
 \vspace{1in}
@@ -112,16 +117,9 @@ A special thank Lori Truitt for all the help she provided with administrative pa
 \subsection{PVS Overview}
 
 PVS  (Prototype Verification System) is an environment for specification and proving. The main purpose of PVS is to provide 
-formal support for conceptualization and debugging in the early stages of the lifecycle of the design
-of hardware or software systems. In these stages, both the requirements and designs are expressed in abstract
-terms that are not necessarily executable. The best way to analyze such an abstract specification is by 
-attempting proofs of desirable consequences of the specification. Subtle errors revealed by trying to prove
-the properties are costly to detect and correct at later stages of the design lifecycle.
-\\The specification language of PVS is built on higher-order logic (functions can be treated like
-primitive types: functions can take functions as arguments and return them as values, quantification
-can be applied to function variables. Specifications can be constructed using definitions and axioms
+formal support for conceptualization and debugging in the early stages of the lifecycle of the design of hardware or software systems. In these stages, both the requirements and designs are expressed in abstract terms that are not necessarily executable. The best way to analyze such an abstract specification is by  attempting proofs of desirable consequences of the specification. Subtle errors revealed by trying to prove the properties are costly to detect and correct at later stages of the design lifecycle. \\
 
-
+The specification language of PVS is built on higher-order logic (functions can be treated like primitive types: functions can take functions as arguments and return them as values, quantification can be applied to function variables. Specifications can be constructed using definitions and axioms
 
 
 
@@ -129,21 +127,36 @@ can be applied to function variables. Specifications can be constructed using de
 
 \subsection{Why translate PVS ?}
 
+Translating a specification language into an 
+
 \subsubsection*{The HACMS Project}
+
+The DARPA-funded project High Assurance Cyber-Military System (HACMS) aims to produce systems and software with proved reliability and security. It uses the abstraction of nodes and topics to describe the different components and communication
+channels. A PVS model of these nodes and topics allows to prove security properties. However the project requires an implementation and integration of the proven algorithms into the system. For that purpose, a translator PVS to C would be very helpful since most of the ROS systems use the C language.
 
 \subsubsection*{Other translators}
 
-- Common Lisp (native)
-- ground evaluator
-- Yices
-- Clean
+Translating PVS was already done for different purposes.
+\begin{itemize}
+\item PVS come with a native PVS to Common Lisp translator. This is used to run PVS programs for testing and debugging purposes. Since PVS's API relies heavily on the Common Lisp language, it is very easy to run PVS code within Emacs. The "Ground Evaluator" uses the generated Common Lisp code to evaluate PVS expressions. It provides a more user-friendly interface for the PVS translator by being integrated into Emacs and translating simple Common Lisp expression back to PVS.
+\item PVS expressions can also be translated to Yices's specification language syntax. Yices is an efficient SMT solver developed at SRI by Bruno Dutertre. This translation is a way to "plug" the Yices solver into PVS, allowing automated proof of theorems and TCCs.
+\item PVS was translated to the Clean language.
+\item Lately PVS was also translated to the SMT-LIB language (work in progress) for standardization purposes. This would allow every SMT solver able to process SMT-LIB standard inputs such as Yices 2, to be plugged into PVS for further proof automation.
+\end{itemize}
 
 
-
-
+\newpage
 \section{Translating PVS}
 
-\subsection{Translation's architecture}
+A translator is a program taking the source code of program $P$ written in the programming language $\mathcal{L}_A$ as an entry and generating the code of an other program $Q$ in the target language $\mathcal{L}_B$ as an output. In our case, $\mathcal{L}_A$ is a subset of PVS and $\mathcal{L}_B$ is the language C. It is expected from a translator to:
+\begin{itemize}
+\item Never fail if the entry is the code of a valid program in the input language, $\mathcal{L}_A$. However the translator might declare being only able to translate a fragment of the language and restrict its input language. In our case, we expect input programs to be written using the syntax in Figure~\ref{fig:PVSsyntax}, to be parsed and typechecked using PVS without error and finally, we expect that TCCs generated by PVS can be proven.
+\item Generate a valid program in the target language $\mathcal{L}_B$.
+\item For all entry $x$, $P(x)$ and $Q(x)$ return the same result (correctness).
+\end{itemize}
+
+
+\subsection{Translator's architecture}
 
 The translation from PVS \cite{PVS:manuals} to C follow five main steps:
 \begin{itemize}
@@ -167,88 +180,18 @@ Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i
 
 
 
-Describe here the Lisp functions and data structures
-
-Skeleton
-
-Expected input
-
-Output objects
-
-Assertions that we (try to) maintain
+\subsection{Translating PVS type}
 
 
+\subsubsection{PVS type system}
+A PVS theory needs to be typechecked using the emacs interface \cl{M-x typecheck} or calling the Lisp function \cl{(tc name-theory)}. This runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
+
+The (simplified) syntax for PVS types is described in Figure~\ref{fig:PVS-types}. PVS allow a base types such as boolean or numbers. Then more complex types can be defined such as tuples, record types or functions with range and values over other types. Types can also be restricted into subtypes using predicates. For example, integers are defined as a subtype of rationals with the predicate \cl{integer\_pred}. This way, when an expression is passed to a function ranging over integers, the typechecker generates the TCC "argument must verify the predicate \cl{integer\_pred}". That TCC must then be proven (it is often proven automatically for such simple TCCs). \\
+
+The Figure~\ref{fig:PVS-CLOS-types} describes how PVS type system is represented in CLOS. 
 
 
-We first define a function $T$ to translate an expression $e$.
-$$ T(e) = ( \ T^t(e) \ , \ T^n(e) \ , \ T^i(e) \ , \ T^d(e) \ ) $$
-
-\begin{figure}[!ht]
-\begin{eqnarray*}
-T(\cl{2}) &= (& \cl{int}, "2", [], []) \\
-T(\cl{4294967296}) &= (& \cl{mpz\_t}, \ ? \ , \\
-&& [ \cl{mpz\_init(?);} \ | \\
-&& \ \cl{mpz\_set\_str(?, "4294967296");} ],\\
-&& [ \cl{mpz\_clear(?);} ]) \\
-T(\cl{lambda(x:below(10)):x}) &= (& \cl{int*}, \ ? \ , \\
-&& [ \cl{? = malloc(10 * sizeof(int));} \ | \\
-&& \ \cl{int i;} | \\
-&& \ \cl{for(i = 0; i < 10; i++) }\\
-&& \ \ \ \cl{?[i] = i;}  ]\\
-&& [ \cl{free(?);} ])
-\end{eqnarray*}
-\caption{Translation examples: number expressions}
-\end{figure}
-
-It may occur that $T^n(e) = ?$. In that case, the symbol $?$ appearing in $T^i(e)$ and $T^d(e)$ needs to be replaced by a proper variable name.\\
-
-We then define two other operators:
-\begin{itemize}
-\item $R$ wich take an expression and a type and may add an extra conversion in the instructions to make sure its result has the expected type. Also the result of this function has a proper name.
-\item $S$ which take an expression, a type and a name. It makes sure that the given variable (type + name) is set to a value representing the expression.
-\end{itemize}
-
-
-
-
-\subsection{A few translation rules}
-
-Translation rules :
-
-
-
-
-\begin{lstlisting}
-number-expr "2"
-(C-int, "2", [], [])
-
-number-expr "12315468453213"
-(C-mpz, nil,
-        [mpz_t ~a; | mpz_t_init("12315468453213"); ],
-        [mpz_clear ~a;])
-
-application "f(e1, e2)"
-(C-mpz, nil,
-       [ instr(e1) | instr(e2)
-                   | mpz(~a); | f(~a, e1, e2) ]
-       [mpz_clear(~a);]
-\end{lstlisting}
-
-
-
-\subsection{PVS type system}
-
-\subsubsection{PVS Types}
-A PVS theory can be typechecked using the emacs interface \cl{M-x typecheck} or calling the Lisp function \cl{(tc name-theory)}. This first runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
-
-Here we describe how PVS types are represented in 
-Lisp.
-
-Figure~\ref{fig:PVS-types} \\
-Figure~\ref{fig:PVS-CLOS-types}
-
-
-\subsubsection{Translating types}
+\subsubsection{Translating rules}
 PVS types:\\
 boolean, number, number\_field, real, 
 rational, integer, $A \rightarrow B$, restricted types
@@ -354,14 +297,66 @@ struct CT {
 
 
 
-
-
-
-
-
-
 We can only translate a subset of all PVS types.
 What's missing ?
+
+
+
+
+
+
+\subsection{A few translation rules}
+
+We first define a function $T$ to translate an expression $e$.
+$$ T(e) = ( \ T^t(e) \ , \ T^n(e) \ , \ T^i(e) \ , \ T^d(e) \ ) $$
+
+\begin{figure}[!ht]
+\begin{eqnarray*}
+T(\cl{2}) &= (& \cl{int}, "2", [], []) \\
+T(\cl{4294967296}) &= (& \cl{mpz\_t}, \ ? \ , \\
+&& [ \cl{mpz\_init(?);} \ | \\
+&& \ \cl{mpz\_set\_str(?, "4294967296");} ],\\
+&& [ \cl{mpz\_clear(?);} ]) \\
+T(\cl{lambda(x:below(10)):x}) &= (& \cl{int*}, \ ? \ , \\
+&& [ \cl{? = malloc(10 * sizeof(int));} \ | \\
+&& \ \cl{int i;} | \\
+&& \ \cl{for(i = 0; i < 10; i++) }\\
+&& \ \ \ \cl{?[i] = i;}  ]\\
+&& [ \cl{free(?);} ])
+\end{eqnarray*}
+\caption{Translation examples: number expressions}
+\end{figure}
+
+It may occur that $T^n(e) = ?$. In that case, the symbol $?$ appearing in $T^i(e)$ and $T^d(e)$ needs to be replaced by a proper variable name.\\
+
+We then define two other operators:
+\begin{itemize}
+\item $R$ wich take an expression and a type and may add an extra conversion in the instructions to make sure its result has the expected type. Also the result of this function has a proper name.
+\item $S$ which take an expression, a type and a name. It makes sure that the given variable (type + name) is set to a value representing the expression.
+\end{itemize}
+
+
+
+
+
+
+\begin{lstlisting}
+number-expr "2"
+(C-int, "2", [], [])
+
+number-expr "12315468453213"
+(C-mpz, nil,
+        [mpz_t ~a; | mpz_t_init("12315468453213"); ],
+        [mpz_clear ~a;])
+
+application "f(e1, e2)"
+(C-mpz, nil,
+       [ instr(e1) | instr(e2)
+                   | mpz(~a); | f(~a, e1, e2) ]
+       [mpz_clear(~a);]
+\end{lstlisting}
+
+
 
 
 
@@ -1156,16 +1151,16 @@ $e$
 \end{minipage} &
 $\begin{array}{l}
 Ov(e) \cup Av(a) - \{ x, x^* \} \\
-\qquad \qquad \text{if }x^* \in Ov(e) \\
+\qquad \qquad \text{\ \ if }x^* \in Ov(e) \\
 Ov(e) \cup Ov(a) - \{ x \} \\
-\qquad \qquad \text{if }x \in Ov(e) \\
-Ov(e) \qquad \text{ \ otherwise}
+\qquad \qquad \text{\ \ \ if }x \in Ov(e) \\
+Ov(e)  \qquad \text{ \ \ \ otherwise}
 \end{array}$
 &
 $\begin{array}{l}
 Av(e) \cup Av(a) - \{ x, x^* \} \\
-\qquad \qquad \text{if $x $ or $x^* \in Av(e)$}\\
-Av(e) \qquad \text{ \ otherwise}
+\qquad \text{ \ \ if $x $ or $x^* \in Av(e)$}\\
+Av(e) \qquad \qquad \text{otherwise}
 \end{array}$
 & $Fv(a) \cup Fv(e) - \{ x \} $ \\ \hline
 \end{tabular}
@@ -1174,7 +1169,7 @@ Av(e) \qquad \text{ \ otherwise}
 
 
 \begin{theorem}
-$Ov(e) \subset Av(e) \subset Fv$.
+For all expression $e$, $Ov(e) \subset Av(e) \subset Fv(e)$.
 \end{theorem}
 \begin{proof}
 Simple induction proof on the expression form.
@@ -1300,7 +1295,7 @@ For all non destructive version of a function $f$, $ BA(f) = \emptyset$.
 \end{theorem}
 
 
-\subsubsection{Difference with the previous analysis}
+\subsubsection{Difference with the previous analysis of PVS}
 
 Difference with Shankar \cite{shankar02} and Pavol's \cite{pavol} previous analysis of PVS:
 \begin{itemize}
@@ -1314,13 +1309,18 @@ Difference with Shankar \cite{shankar02} and Pavol's \cite{pavol} previous analy
 
 \subsection{Analysis in term of references}
 
-We also define the live cells, $Lc$, in an expression or update $e$ for a given store $S$.
+We also define the live cells, $Lc(S)(U)$, in an update context $U$ for a given store $S$ as the smallest set of $R$ such that
 \begin{eqnarray*}
-Lc_0(S)(e) &:=& Lv(e) \\
-Lc_{k+1}(S)(e) &:=& R \cap (Lc_k(S)(e) \cup S( Lc_k(S)(e) ) ) \\
-Lc(S)(e) &:=& \lim_k Lc_k(S)(e) \subset R
+R \cap S(Lv(U)) &\subset & Lc(S)(U) \\
+R \cap S(Lc(S)(U)) &\subset & Lc(S)(U)
 \end{eqnarray*}
-The live cells are the references that are accessible in a certain expression given a certain store $S$. All references that are not in this set do not have any influence on the evaluation of the expression.
+This set ca be computed using
+\begin{eqnarray*}
+Lc_0(S)(U) &:=& Lv(U) \\
+Lc_{k+1}(S)(U) &:=& R \cap (Lc_k(S)(U) \cup S( Lc_k(S)(U) ) ) \\
+Lc(S)(U) &:=& \lim_k Lc_k(S)(e) \subset R
+\end{eqnarray*}
+The live cells contain all the references that are accessible in a certain update context given a certain store $S$. All references that are not in this set do not have any influence on the evaluation of the expression.
 It correspond to the references already created in the heap store that can still be accessed in the context or expression.
 
 \begin{theorem}
@@ -1507,7 +1507,7 @@ Correcting translator PVS to SMT-LIB
 \newpage
 \begin{figure}[!ht]
 \input{includes/C-expr}
-\caption{Syntax of the representation language (representation of a subset of the C language)}
+\caption{Syntax of the representation language. Every $Expr$ is typed.}
 \label{fig:Csyntax}
 \end{figure}
 
