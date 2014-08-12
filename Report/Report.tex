@@ -57,15 +57,10 @@ hyperref=true,
 \newtheorem{remark}[theorem]{Remark}
 
 % Mathematic abbreviations
-
 \newcommand{\N}{\mathbb{N}}
 \newcommand{\Z}{\mathbb{Z}}
 \newcommand{\Q}{\mathbb{Q}}
 \newcommand{\R}{\mathbb{R}}
-\newcommand{\Esp}{\mathbb{E}}
-%\newcommand{\E}{\mathbb{E}} % Si tu l'utilise beaucoup
-\newcommand{\Prob}{\mathbb{P}}
-%\newcommand{\P}{\mathbb{P}} % Si tu l'utilise beaucoup
 
 \newcommand{\mpzt}{ \texttt{ mpz\_t } }
 \newcommand{\mpqt}{ \texttt{ mpq\_t } }
@@ -94,7 +89,7 @@ PVS (standing for Prototype Verification System), is an Open Source project deve
 
 The update of aggregate data structure, such as arrays, are frequent in functional programs and requires copying before being updated which is a significant source of space/time inefficiencies.
 However the execution of updates by copying is often redundant and could be safely implemented by means of destructive, inplace updates in an imperative program.
-We describe a method for analyzing and replacing the safe updates in an imperative program by destructive, inplace update.
+We describe a simple method for analyzing and replacing the safe updates in an imperative program with destructive, in-place update.
 This method has been implemented to optimize the PVS translator.
 \end{abstract}
 
@@ -116,8 +111,7 @@ A special thank Lori Truitt for all the help she provided with administrative pa
 
 \subsection{PVS Overview}
 
-PVS  (Prototype Verification System) is an environment for specification and proving. The main purpose of PVS is to provide 
-formal support for conceptualization and debugging in the early stages of the lifecycle of the design of hardware or software systems. In these stages, both the requirements and designs are expressed in abstract terms that are not necessarily executable. The best way to analyze such an abstract specification is by  attempting proofs of desirable consequences of the specification. Subtle errors revealed by trying to prove the properties are costly to detect and correct at later stages of the design lifecycle. \\
+PVS  (Prototype Verification System) is an environment for specification and proving. The main purpose of PVS is to provide formal support for conceptualization and debugging in the early stages of the lifecycle of the design of hardware or software systems. In these stages, both the requirements and designs are expressed in abstract terms that are not necessarily executable. The best way to analyze such an abstract specification is by attempting proofs of desirable consequences of the specification. Subtle errors revealed by trying to prove the properties are costly to detect and correct at later stages of the design lifecycle. \\
 
 The specification language of PVS is built on higher-order logic (functions can be treated like primitive types: functions can take functions as arguments and return them as values, quantification can be applied to function variables. Specifications can be constructed using definitions and axioms
 
@@ -305,7 +299,19 @@ What's missing ?
 
 
 
-\subsection{A few translation rules}
+
+
+
+
+
+
+\subsection{Translating PVS syntax}
+
+
+We can only translate a subset of PVS syntax.
+What's missing ?
+
+\subsubsection{A few translation rules}
 
 We first define a function $T$ to translate an expression $e$.
 $$ T(e) = ( \ T^t(e) \ , \ T^n(e) \ , \ T^i(e) \ , \ T^d(e) \ ) $$
@@ -360,24 +366,18 @@ application "f(e1, e2)"
 
 
 
+\subsection{Optimization of the intermediate language}
 
-\subsection{Translating PVS syntax}
-
-
-We can only translate a subset of PVS syntax.
-What's missing ?
-
-
-
-\subsection{Using a representation of the C language}
-
-Figure~\ref{fig:Csyntax}
-
+We perform two main analysis on the intermediate language.
+\begin{itemize}
+\item The first one consists in replacing non destructive updates with destructive updates as often as possible. The algorithm is described in Section~\ref{sec:UpdateExpr} and the analysis itself is described in Section~\ref{sec:StaticAnal}.
+\item 
+\end{itemize}
 
 
 
 \section{Update expressions}
-
+\label{sec:UpdateExpr}
 
  It is a complicated problem to decide while compiling a functionnal language whether an update expression should be translated into a destructive or non destructive update in the target imperative language.\\
 
@@ -644,24 +644,30 @@ As in the previous solution, we have the following issues:
 \item This adds some extra code
 \item This adds some extra computation. We need runtime tests for updates, and access to an element not requires reading the whole replacement list.
 \item This relies on lot on the GC.
-%\item This requires to create as many structures and associated functions as there are range types for the manipulated arrays.
 \end{itemize}
 
 
 \subsection{Flow analysis on the PVS code}
 
-An other optimization would be to perform a analysis on the PVS variables to make sure an udate
-Pavol \cite{pavol} suggests three analysis...
+An other optimization would be to perform a analysis on the PVS expressions. Shankar \cite{shankar02} and later Pavol \cite{pavol} suggest several analysis based on flow analysis that allow to replace non destructive updates with destructive updates.\\
+
+This requires the definition of two versions of each function. A safe version performing no destructive update that can always be called and an other "destructive" version that can only be called under certain condition on the arguments. However because of these conditions, the body of that destructive version is allowed to perform safe destructive update and may call destructive versions of functions.
 
 
-
-\subsection{Analysis of the C code}
+\subsection{Analysis of the intermediate language}
 \label{Canalysis}
 
-This solution consist in performing an analysis on the C code internal representation before generating the actual output C code.\\
+The solution we decided to implement consists in an analysis on the intermediate language before generating the actual output C code.\\
 
-We use flags and two different version of the translated functions to translate update expressions (or dangerous function calls) into a destructive update as often as possible.\\
+We also use two different versions of a PVS function called $f$ and $f^d$. Our analysis differs from Shankar and Pavol's preivous work in (at least) the following:
+\begin{itemize}
+\item The non destructive version of a function is also optimized and might have some destructive updates or function calls.
+\item The destructive function does not have all its function call destructive.
+\end{itemize}
 
+The analysis is explained in details in Section~\ref{sec:StaticAnal}. The analysis we implemented basically relies on over approximations of the sets of critical and free variables in a context.
+
+\subsubsection*{The flags}
 
 We define three flags:
 \begin{itemize}
@@ -699,9 +705,15 @@ int* B = id(A);
 \end{lstlisting}
 \end{itemize}
 
-We want to ensure the following properties:
+To connect with the analysis Section~\ref{sec:StaticAnal}, we could say that
+\begin{itemize}
+\item If $f(f_i) := U\ucont{\cl{set(}x\cl{, }a\cl{); }e}$, the variable $x$ is flagged \bang when all $Ov(a)$ are flagged \bang as well and are neither live in $U$ nor free in $e$.
+\item If $f_i$ is flagged \bang, then $f_i \in BA(f)$. This is why we ensure no arguments in non destructive versions of functions are flagged \bang.
+\item A occurrence of a variable $x$ is flagged \safe when this variable is not live in the context of that occurrence.
+\item An expression $a$ is flagged \dupl when $Av(a) \subset Av(e)$. We are only interested in the arguments of $f$ that are flagged \dupl though.
+\end{itemize}
 
-\begin{figure}
+We want to ensure the following properties on the flags
 \begin{itemize}
 \item Only function declarations and variables with type struct or array can be flagged \bang.
 \item Only a single occurrence of a variable may be flagged \safe.
@@ -719,9 +731,6 @@ It may not be flagged \bang if it is the result of a call to a function not flag
 \end{itemize}
 \item If a variable is once flagged \dupl, then if it is an argument, this argument is also flagged \dupl.
 \end{itemize}
-\caption{Propeties of the flags}
-\label{fig:properties}
-\end{figure}
 
 
 
@@ -960,7 +969,7 @@ To prevent that, we also perform a GC check. An update is actually a test wether
 \newpage
 
 \section{Static analysis of the intermediate language}
-\label{staticanal}
+\label{sec:StaticAnal}
 
 We describe here the static analysis of the intermediate language (which syntax is defined in Figure~\ref{fig:aux-syntax}) implemented in the translator.
 
@@ -971,7 +980,7 @@ We describe here the static analysis of the intermediate language (which syntax 
 
 We assume a few properties on valid programs:
 \begin{enumerate}
-\item The \cl{set} instruction is a declaration and an assignment of a variable to a value at the same time. If an expression contains two \cl{set} of the same variable, the second \cl{set} will override the first definition.
+\item The \cl{set} instruction is a declaration and an assignment of a variable to a value at the same time. If an expression contains two \cl{set} of the same variable, the second \cl{set} will override the first definition. We assume then that a variable is never \cl{set} twice in the same expression.
 \item The only free variables in the body of a function declaration are the arguments of that function.
 \end{enumerate}
 
@@ -1193,9 +1202,7 @@ We introduce \emph{update contexts} as an expression with a single occurrence of
 \item $ \cl{if (} x \cl{) } a \cl{ else } U $
 \end{enumerate}
 
-To define which update can be made destructively, we now build a reference graph in a context $U$. We define the pointer analysis of $U$ as $PA(U)$ where $PA(U)(X)$ is the set of all variables $X$ may point to in the context $U$. \\
-
-This will allow us to define the variables free in this context as well as the set of variable that can be modified by a destructive update.
+To define which update can be made destructively, we now build a reference graph in a context $U$. We define the pointer analysis of $U$ as $PA(U)$ where $PA(U)(X)$ is the set of all variables $X$ may point to in the context $U$.
 \begin{eqnarray*}
 PA(\ucont{} ) &:& \left| \begin{array}{lcl}
 X   & \mapsto & \{ X, X^* \} \\
@@ -1211,19 +1218,17 @@ Av(a) & \text{if $x^* \in PA(U)(X)$.} \\
 PA( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& PA(U) \\
 PA( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& PA(U) 
 \end{eqnarray*}
+This will allow us to define the variables free in this context as well as the set of variable that can be modified by a destructive update. \\
 
 
 
-For $X$ a variable and $U$ a context, we also consider the set of critical variables $Cv(U)(X)$ smaller set such that :
-$$\forall Y \ , \ \ PA(U)(Y) \subset Cv(U)(X) \ \text{ or } PA(U)(Y) \cap Cv(U)(X) = \emptyset $$
-This set contain all variables that may point to $X$ and all variable that may point to these variables and so on. \\
+For $X$ a variable and $U$ a context, we also consider the set of critical variables $Cv(U)(X)$ which contains all variables that may point to $X$ and all variable that may point to these variables and so on. It is the smaller containing $X$ such that
+$$\forall Y \ , \ \ Y \notin Cv(U)(X) \ \Longrightarrow \ PA(U)(Y) \cap Cv(U)(X) = \emptyset $$
 
 
-The variables live in a context are the variables that could be evaluated after the hole the in the context and the variable that these variables may point to and so on.\\
-
-When we consider turning a non destructive update $X\cl{[(}x\cl{) := } \cl{y} \cl{]}$ in a context $U$ into a destructive update, we want to make sure that critical variables are not live $U$.
-$$ Cv(U)(X) \cap Lv(U) = \emptyset $$
-The set $Lv(U)$ of the variables live in a context $U$ is defined as the smallest set containing $Lv^0(U)$
+The set $Lv(U)$ of the variables live in a context $U$ are the variables that could be evaluated after the hole the in the context and the variables that these variables may point to and so on. It is defined as the smallest set containing $Lv^0(U)$ an close under 
+$$ PA(U)(Lv(U)) \subset Lv(U) $$
+where $Lv^0(U)$ is defined as
 \begin{eqnarray*}
 Lv^0(\ucont{} ) &:=& \emptyset \\
 Lv^0( \cl{set(} x \cl{, } U \cl{); } e ) &:=& Fv(e) \cup Lv^0(U) \\
@@ -1231,8 +1236,8 @@ Lv^0( \cl{set(} x \cl{, } a \cl{); } U )(X) &:=& Lv^0(U) \\
 Lv^0( \cl{if (} x \cl{) } U \cl{ else } b ) &:=& Lv^0(U) \\
 Lv^0( \cl{if (} x \cl{) } a \cl{ else } U ) &:=& Lv^0(U)
 \end{eqnarray*}
-an close under 
-$$ PA(U)(Lv(U)) \subset Lv(U) $$
+When we consider turning a non destructive update $X\cl{[(}x\cl{) := } \cl{y} \cl{]}$ in a context $U$ into a destructive update, we want to make sure that critical variables are not live $U$.
+$$ Cv(U)(X) \cap Lv(U) = \emptyset $$
 
 
 
@@ -1336,15 +1341,6 @@ It can easily be verified for every redex. When $a = U\ucont{b}$, we have $Lc(a)
 
 
 
-\subsection{Difference with the previous analysis of PVS}
-
-Difference with Shankar \cite{shankar02} and Pavol's \cite{pavol} previous analysis of PVS:
-\begin{itemize}
-\item The non destructive version of a function is also optimized and might have some destructive updates or function calls.
-\item The destructive function does not have all its function call destructive.
-\end{itemize}
-
-
 
 
 
@@ -1354,10 +1350,7 @@ Difference with Shankar \cite{shankar02} and Pavol's \cite{pavol} previous analy
 \newpage
 \section{Conclusion}
 
-
-
-
-
+We have described the architecture of the translator from PVS to the C language and provided a few examples of its execution on simple examples to illustrate its mechanisms. This tool allow to efficiently execute PVS code for debugging and testing purposes and to easily integrate C code into actual systems where the C and C++ are common development languages.
 
 
 
@@ -1371,7 +1364,7 @@ This project was a great challenge and an opportunity for me to conduct my own a
 To be able to translate PVS, I had to fully understand not only the syntax and semantics of the PVS language but also the structure of the PVS API written in Common Lisp. This means I also had to learn Common Lisp which I decided then to use to write the translator mostly because it made the integration of the native PVS parser and typechecker easier. Finally I had to discover the C language which I only had a basic knowledge of.
 
 
-\subsubsection{Integrating the GMP library}
+\subsubsection*{Integrating the GMP library}
 In PVS (and in other languages such as Common Lisp or Python), the \cl{integer} type represent the whole set $\Z$ of all relative numbers (and \cl{rational} also describe $\Q$).
 To implement that in C, we need more than the finite types \cl{int}, \cl{long}, etc.
 
@@ -1402,11 +1395,9 @@ void norm(mpz_t result, mpz_t x, mpz_t y) {
 
 
 
+\subsection{What's left to be done ?}
 
-\subsection*{What's left to be done ?}
-
-One of my biggest regret was not having the time to finish the translator and fully implement closures.
-Some work is already done in that direction. We use a C structure to represent a closure:
+One of my biggest regret was not having the time to finish the translator and properly implement closures. Some work is already done in that direction though. It relies on a C structure to represent a closure:
 \begin{lstlisting}
 struct r_list_int {
    int (*body)(void* env, void* args);  // body is a function pointer
@@ -1416,8 +1407,10 @@ struct r_list_int {
 \end{lstlisting}
 
 
+Since the translator's correctness itself has not be proven, there is no formal guarantee that the semantic will be preserved during the translation. In particular, even if some properties were proven on a certain PVS model, its translation to C could not verify these properties. This tool certainly does not allow the generation of high insurance code. The only way to do that would be to formally prove the correctness of the translator. The CompCert C compiler (\href{http://compcert.inria.fr}{http://compcert.inria.fr/compcert-C.html}), is an example of such a proven translator.
 
-\subsection*{My stay at SRI}
+
+\subsection{My stay at SRI}
 
 Besides the conception and implementation of the PVS to C translator, my stay at SRI International was rich in interesting events. 
 
