@@ -9,14 +9,8 @@
 \usepackage{xcolor}
 \usepackage{graphicx}
 
-\usepackage{includes/bussproofs}
-
-% --- CSL part
-\input{includes/pvstex}
-\usepackage{includes/makebnf}
 
 \usepackage[space]{grffile}
-\usepackage{pdfpages}
 
 
 % --- Partie code
@@ -34,13 +28,13 @@
 \newcommand{\cl}[1]{\texttt{#1}}
 
 % --- Parti math. (app.)
-\newtheorem{theorem}{Theorem}
-\newtheorem{lemma}[theorem]{Lemma}
-\newtheorem{proposition}[theorem]{Proposition}
-\newtheorem{corollary}[theorem]{Corollary}
-\newtheorem{definition}[theorem]{Definition}
-\newtheorem{algorithm}[theorem]{Algorithm}
-\newtheorem{remark}[theorem]{Remark}
+%\newtheorem{theorem}{Theorem}
+%\newtheorem{lemma}[theorem]{Lemma}
+%\newtheorem{proposition}[theorem]{Proposition}
+%\newtheorem{corollary}[theorem]{Corollary}
+%\newtheorem{definition}[theorem]{Definition}
+%\newtheorem{algorithm}[theorem]{Algorithm}
+%\newtheorem{remark}[theorem]{Remark}
 
 % Mathematic abbreviations
 \newcommand{\N}{\mathbb{N}}
@@ -63,11 +57,41 @@
 \newcommand{\ucont}[1]{\{#1\}}
 
 
+
+\usetheme{Warsaw}
+\usecolortheme{default}
+
+
+\title[From PVS to C]{Translating PVS to C}
+% \subtitle{Subtitle}
+\author[Ferey]{Gaspard Ferey, Ecole Polytechnique}
+\institute{SRI International}
+\date{September 1st, 2014}
+
+
 \begin{document}
 
+\frame{\titlepage}
 
 
+\begin{frame}
+\frametitle{Table of Contents}
+\tableofcontents[currentsection]
+\end{frame}
 
+\section{Introduction}
+
+
+\begin{frame}
+\frametitle{This is the first slide}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{This is the second slide}
+\framesubtitle{A bit more information about this}
+
+\end{frame}
 
 
 

@@ -85,10 +85,10 @@ hyperref=true,
 \
 \vspace{1.5in}
 \begin{abstract}
-PVS (standing for Prototype Verification System), is an Open Source project developped by CSL at SRI International and aiming to be both a semi-automated theorem prover providing formal support for conceptualization and debugging in the early stages of the design of hardware or software systems and a programming language. The evaluation of PVS expressions relies so far on a build-in PVS interpreter based on Common Lisp, called "Ground Evaluator". In order to allow the integration of PVS code as well as its fast execution for debugging and testing purposes, we describe here a translator of a subset of PVS to the language C.\\
+PVS (standing for Prototype Verification System), is an Open Source project developed by CSL at SRI International and aiming to be both a semi-automated theorem prover providing formal support for conceptualization and debugging in the early stages of the design of hardware or software systems and a programming language. The evaluation of PVS expressions relies so far on a build-in PVS interpreter based on Common Lisp, called "Ground Evaluator". In order to allow the integration of PVS code as well as its fast execution for debugging and testing purposes, we describe here a translator of a subset of PVS to the language C.\\
 
 The update of aggregate data structure, such as arrays, are frequent in functional programs and requires copying before being updated which is a significant source of space/time inefficiencies.
-However the execution of updates by copying is often redundant and could be safely implemented by means of destructive, inplace updates in an imperative program.
+However the execution of updates by copying is often redundant and could be safely implemented by means of destructive, in-place updates in an imperative program.
 We describe a simple method for analyzing and replacing the safe updates in an imperative program with destructive, in-place update.
 This method has been implemented to optimize the PVS translator.
 \end{abstract}
@@ -111,7 +111,7 @@ A special thank Lori Truitt for all the help she provided with administrative pa
 
 \subsection{PVS Overview}
 
-PVS  (Prototype Verification System) is an environment for specification and proving. The main purpose of PVS is to provide formal support for conceptualization and debugging in the early stages of the lifecycle of the design of hardware or software systems. In these stages, both the requirements and designs are expressed in abstract terms that are not necessarily executable. The best way to analyze such an abstract specification is by attempting proofs of desirable consequences of the specification. Subtle errors revealed by trying to prove the properties are costly to detect and correct at later stages of the design lifecycle. \\
+PVS  (Prototype Verification System) is an environment for specification and proving. The main purpose of PVS is to provide formal support for conceptualization and debugging in the early stages of the life cycle of the design of hardware or software systems. In these stages, both the requirements and designs are expressed in abstract terms that are not necessarily executable. The best way to analyze such an abstract specification is by attempting proofs of desirable consequences of the specification. Subtle errors revealed by trying to prove the properties are costly to detect and correct at later stages of the design life cycle. \\
 
 The specification language of PVS is built on higher-order logic (functions can be treated like primitive types: functions can take functions as arguments and return them as values, quantification can be applied to function variables. Specifications can be constructed using definitions and axioms
 
@@ -152,7 +152,7 @@ A translator is a program taking the source code of program $P$ written in the p
 
 \subsection{Translator's architecture}
 
-The translation from PVS \cite{PVS:manuals} to C follow five main steps:
+The translation from PVS \cite{PVS:manuals} to C follows these main steps:
 \begin{itemize}
 \item Typechecking: The PVS typechecker \cite{PVS:userguide} perform a type analysis on the PVS code to associate a PVS type to each expression. This might generates some proof obligations (TCC). The user of the translator has to make sure that the PVS code can be correctly typechecked and that all TCC can be proven.
 
@@ -161,13 +161,11 @@ The translation from PVS \cite{PVS:manuals} to C follow five main steps:
 In Figure~\ref{fig:PVSsyntax}, we describe the syntax of the subset of PVS we are currently able to translate to C.
 In Figure~\ref{fig:PVS-CLOS}, we describe the Common Lisp Object System architecture used by PVS to represent them in Common Lisp. Some classes and some slots in the classes are voluntarily omitted. For a full description of PVS parser representation, refer to \cite{PVS:api}.
 
-\item Translation: The translator flattens PVS expressions to generates an intermediate language which heavily relies on the use of intermediate variables to allow a simpler static analysis. The syntax of this language is described Figure~\ref{fig:aux-syntax}.
+\item Translation: The translator flattens all PVS definitions to generates a program in an intermediate language which heavily relies on the use of intermediate variables to store the values of every expression. Besides, this form allows a simpler static analysis. The translation is briefly described in subsection~\ref{subsec:pvssyntax}. The syntax of this language is described Figure~\ref{fig:aux-syntax}.
 
-\item Static analysis: The intermediate language is analyzed and stripped from some of its unnecessary copies and non destructive updates using flow analysis and an enriched type system. This analysis inspired from Shankar \cite{shankar02} and Pavol Cerny's \cite{pavol} previous analysis of PVS is described with more detail in Section~\ref{staticanal}.
+\item Static analysis: The intermediate language is analyzed and stripped from some of its unnecessary copies and non destructive updates using flow analysis. This analysis inspired from Shankar \cite{shankar02} and Pavol Cerny's \cite{pavol} previous analysis of PVS is described with more detail in Section~\ref{sec:StaticAnal}.
 
-Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i,d)$, where $t$ represents a C type used to describe the expression, $e$ is a simple expression, $i$ is a list of instructions to be executed prior to using $e$, the initialization of the expression. Finally $d$ is a list of instructions to be executed when $n$ isn't needed anymore, the destruction of $e$.
-
-\item Optimizations: Several simple analysis are performed, for instance to determine where to declare and free variables as well as the most adapted C types to use. The code generated from that step can be described by the syntax in Figure~\ref{fig:Csyntax}.
+\item Optimizations: Several simple analysis are performed to determine, for instance, where to declare and free variables as well as the most adapted C types to use. The output is a more complete and closer to C version of the intermediate language. The type translation is described in the subsection~\ref{subsec:pvstypes}. The code generated from that step can be described by the syntax in Figure~\ref{fig:Csyntax}. 
 
 \item Code generation: C code is generated (.c and .h files) and can be compiled using gcc and executed when linked with the garbage collector and the GMP library. The C syntax is described in \cite{huss2004c} and the GMP library reference can be found at \href{https://gmplib.org/manual/}{https://gmplib.org/manual/}.
 \end{itemize}
@@ -175,7 +173,7 @@ Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i
 
 
 \subsection{Translating PVS type}
-
+\label{subsec:pvstypes}
 
 \subsubsection{PVS type system}
 A PVS theory needs to be typechecked using the emacs interface \cl{M-x typecheck} or calling the Lisp function \cl{(tc name-theory)}. This runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
@@ -306,10 +304,18 @@ What's missing ?
 
 
 \subsection{Translating PVS syntax}
+\label{subsec:pvssyntax}
 
 
 We can only translate a subset of PVS syntax.
 What's missing ?
+
+
+Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i,d)$, where $t$ represents a C type used to describe the expression, $e$ is a simple expression, $i$ is a list of instructions to be executed prior to using $e$, the initialization of the expression. Finally $d$ is a list of instructions to be executed when $n$ isn't needed anymore, the destruction of $e$.
+
+
+
+
 
 \subsubsection{A few translation rules}
 
@@ -965,9 +971,6 @@ To prevent that, we also perform a GC check. An update is actually a test wether
 
 
 \newpage
-\
-\newpage
-
 \section{Static analysis of the intermediate language}
 \label{sec:StaticAnal}
 
@@ -1268,7 +1271,7 @@ The yields the definition $e_d$ of $f^d$ verifying the following properties:
 $$ e_d = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \Longleftrightarrow \ Cv(U)(X) \cap Lv(U) = \emptyset $$
 \item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$, such that $e_d = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}}$,
 $$ Cv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap Lv(U) = \emptyset $$
-$$ BA(g^d) \ni g^d_i \neq g^d_j \in BA(g^d) \Longrightarrow PA(U)(x_i) \cap PA(U)(x_j) = \emptyset$$
+$$ BA(g^d) \ni g^d_i \neq g^d_j \in BA(g^d) \Longrightarrow Cv(U)(x_i) \cap Cv(U)(x_j) = \emptyset$$
 \end{itemize}
 \item The first consists in forbidding the use of destructive updates which argument may be pointing to by arguments. This is equivalent to saying that all arguments of non destructive functions are live in all contexts (or just in the empty context).
 This yields the new definition $e_{nd}$ of $f$ verifying the following properties:
@@ -1277,7 +1280,7 @@ This yields the new definition $e_{nd}$ of $f$ verifying the following propertie
 $$ e_{nd} = U\ucont{X\cl{[(}x \cl{) <- } y \cl{]}} \ \ \Longleftrightarrow \ \  Cv(U)(X) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
 \item $\forall U, g^d, (x_i)_{1 \leq i \leq n}$, such that $e_{nd} = U\ucont{g^d\cl{(}x_1 \cl{,} ... \cl{,} x_n \cl{)}}$
 $$ Cv(U)( \{ x_i | g^d_i \in BA(g^d) \}) \cap \left( Lv(U) \cup \{f_1, ... , f_n \} \right) = \emptyset $$
-$$ BA(g^d) \ni g^d_i \neq g^d_j \in BA(g^d) \Longrightarrow PA(U)(x_i) \cap PA(U)(x_j) = \emptyset$$
+$$ BA(g^d) \ni g^d_i \neq g^d_j \in BA(g^d) \Longrightarrow Cv(U)(x_i) \cap Cv(U)(x_j) = \emptyset$$
 \end{itemize}
 \end{itemize}
 \begin{theorem}
@@ -1297,23 +1300,23 @@ It correspond to the only references already created in the heap store that can 
 
 The proof of correctness relies on three main invariants:
 \begin{enumerate}
-\item The results of function calls to $f$ and $f_d$ have the same evaluation. This means they can't be told apart by looking only at the value of the result. However they differ in their use of the arguments.
-\item The only references which value may be modified during the evaluation of the call of $f(x_i)$ with a store $S$ is $\bigcup_{f_i \in BA(f)} Ac(S)(x_i)$.
-\item The union above is always a disjoint union.
+\item The function call to $f^d$ have the same evaluation. This means they can't be told apart by looking only at the value of the result. However they differ in the use of their arguments.
+\item When the function call $f(x_i)$ is evaluated with a store $S$, the only references which value could be modified is $\bigcup_{f_i \in BA(f)} S(x_i) \cup \bigcup_{f^*_i \in BA(f)} Ac(S)(x_i)$.
+\item The union above is always a pairwise disjoint union.
 \end{enumerate}
 These properties are obviously true before the analysis since $f = f^d$, $BA(f) = \emptyset$ for all function and no reference ever have its value modified.\\
 
 The destructive and non destructive versions of a function $f$ are built from the original definition $e$ by replacing function calls (updates can be considered as a function call). To prove the correctness of this algorithm we need to prove that the three invariants described above are preserved between programs before and after a single replacement. \\
 
-We consider the replacement of $g$ to $g^d$ in a function $f^d$ of body $e =  U\ucont{g\cl{(}x_i \cl{,} y_j \cl{,} z_k \cl{)}}$ with $x_i$ variables corresponding to the critical arguments $g_i \in BA(g)$, $y_j$ corresponding to arguments that are active in the body of $e$ and $z_k$ arguments that are not arrays or are not in either of the previous sets. \\
+We consider the replacement of $g$ to $g^d$ in a function $f^d$ of body $e =  U\ucont{g^d\cl{(}x_i \cl{,} y_j \cl{,} z_k \cl{)}}$ with $x_i$ variables corresponding to the critical arguments $g^d_i \in BA(g^d)$, $y_j$ corresponding to arguments that are active in the body of $e$ and $z_k$ arguments that are not arrays or are not in either of the previous sets. \\
 
 We have the following hypothesis
 \begin{itemize}
-\item[$(H1)$] $ g^d_i \in BA(g^d) \Longrightarrow Cv(U)(x_i) \cap Lv(U) = \emptyset $ \ \ (Analysis)
-\item[$(H2)$] $BA(g^d) \ni g^d_i \neq g^d_j \in BA(g^d) \Longrightarrow PA(U)(x_i) \cap PA(U)(x_j) = \emptyset$ \ \ (Analysis)
-\item[$(H3)$] The only references which value may be modified during the evaluation of the call with a store $S$ is the union $\bigcup Ac(S)(x_i)$.
-\item[$(H4)$] The evaluation of the call with a store $S$ return the same result than if $g$ was called.
-\item[$(H5)$] $f$ is always going to be called in an evaluation context with a store such that the sets $Ac(S)(f_i)$ are disjoint.
+\item[$(H1)$] $\forall i, \ Cv(U)(x_i) \cap Lv(U) = \emptyset $ \ \ (Analysis)
+\item[$(H2)$] $\forall i \neq h, \ Cv(U)(x_i) \cap Cv(U)(x_j) = \emptyset$ \ \ (Analysis)
+\item[$(H3)$] The only references which value may be modified during the evaluation of the call with a store $S$ is the union $\bigcup S(x_i) \cup \bigcup Ac(S)(x^*_i)$.
+\item[$(H4)$] The evaluation of the call to $g^d$ with a store $S$ is the same than if $g$ was called.
+\item[$(H5)$] $f$ will always be called in an evaluation context with a store $S$ such that the sets $Ac(S)(f_i)$ are disjoint for all $f_i \in BA(f)$.
 \end{itemize}
 \begin{proposition}
 For all store $S$ with which this function call is evaluated, the sets $Ac(S)(x_i)$ are disjoint.
@@ -1321,14 +1324,17 @@ For all store $S$ with which this function call is evaluated, the sets $Ac(S)(x_
 \begin{proof}
 $(H2)$ and $(H5)$.
 \end{proof}
-
+\begin{proposition}
+For all store $S$ with which the function call is evaluated, the sets $\bigcup S(x_i) \cup \bigcup Ac(S)(x^*_i)$ and $Ac(S)(U)$ are disjoints.
+\end{proposition}
+\begin{proof}
+$(H1)$ and $(H5)$.
+\end{proof}
 
 
 
 
 This analysis would have worked as well for non destructive versions of functions and for the replacement of an update rather than a function call.
-
-\subsubsection{Analysis in term of references}
 
 
 
@@ -1350,7 +1356,13 @@ It can easily be verified for every redex. When $a = U\ucont{b}$, we have $Lc(a)
 \newpage
 \section{Conclusion}
 
-We have described the architecture of the translator from PVS to the C language and provided a few examples of its execution on simple examples to illustrate its mechanisms. This tool allow to efficiently execute PVS code for debugging and testing purposes and to easily integrate C code into actual systems where the C and C++ are common development languages.
+We have described the general architecture of the translator from PVS to the C language we implemented and integrated into PVS. We have provided a few examples of its execution on simple examples to illustrate its mechanisms.
+
+We have described the update issue and various ways to deal with it. Both the use of a reference counting garbage collector and an analysis of the intermediate language were implemented.
+
+We have defined the semantics of the intermediate language which allowed us to prove the correctness of the analysis that is performed on it to eliminate non destructive updates.
+
+This tool allows to efficiently execute PVS code for debugging and testing purposes and to easily integrate C code into actual systems where the C and C++ are common development languages.
 
 
 
