@@ -1,0 +1,74 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{amsfonts}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+\usepackage{includes/bussproofs}
+
+% --- CSL part
+\input{includes/pvstex}
+\usepackage{includes/makebnf}
+
+\usepackage[space]{grffile}
+\usepackage{pdfpages}
+
+
+% --- Partie code
+\usepackage{listings}
+\lstset{language=C,
+        showstringspaces=false,
+        basicstyle=\footnotesize\ttfamily,
+        captionpos=b,
+        stepnumber=1,
+        keywordstyle=\bfseries\color{green!40!black},
+        commentstyle=\itshape\color{purple!40!black},
+        identifierstyle=\color{blue},
+        stringstyle=\color{red}}
+
+\newcommand{\cl}[1]{\texttt{#1}}
+
+% --- Parti math. (app.)
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{algorithm}[theorem]{Algorithm}
+\newtheorem{remark}[theorem]{Remark}
+
+% Mathematic abbreviations
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+
+\newcommand{\mpzt}{ \texttt{ mpz\_t } }
+\newcommand{\mpqt}{ \texttt{ mpq\_t } }
+
+\newcommand{\mut}{  \textbf{ mutable } }
+\newcommand{\nmut}{ \textbf{ non-mutable } }
+\newcommand{\bang}{ \textbf{ mutable } }
+\newcommand{\safe}{ \textbf{ safe } }
+\newcommand{\dupl}{ \textbf{ duplicated } }
+
+% evaluation context hole
+\newcommand{\econt}[1]{[#1]}
+% update context hole
+\newcommand{\ucont}[1]{\{#1\}}
+
+
+\begin{document}
+
+
+
+
+
+
+
+\end{document}
