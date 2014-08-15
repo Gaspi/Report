@@ -77,6 +77,8 @@ hyperref=true,
 \newcommand{\ucont}[1]{\{#1\}}
 
 
+\setcounter{tocdepth}{2}
+
 \begin{document}
 
 \includepdf[pages={1}]{includes/frontpage/frontpage.pdf}
@@ -178,81 +180,43 @@ In Figure~\ref{fig:PVS-CLOS}, we describe the Common Lisp Object System architec
 \subsubsection{PVS type system}
 A PVS theory needs to be typechecked using the emacs interface \cl{M-x typecheck} or calling the Lisp function \cl{(tc name-theory)}. This runs the PVS parser on the code and generates CLOS objects to represent it. Then, the PVS typechecker is run on this internal representation of the theory and tries to give a type to all expressions generating TCC when needed.\\
 
-The (simplified) syntax for PVS types is described in Figure~\ref{fig:PVS-types}. PVS allow a base types such as boolean or numbers. Then more complex types can be defined such as tuples, record types or functions with range and values over other types. Types can also be restricted into subtypes using predicates. For example, integers are defined as a subtype of rationals with the predicate \cl{integer\_pred}. This way, when an expression is passed to a function ranging over integers, the typechecker generates the TCC "argument must verify the predicate \cl{integer\_pred}". That TCC must then be proven (it is often proven automatically for such simple TCCs). \\
+The (simplified) syntax for PVS types is described in Figure~\ref{fig:PVS-types}. PVS allow a base types such as \cl{boolean}s or \cl{number}s. Then more complex types can be defined such as sets, tuples, datatypes or functions with range and values over other types. Types can also be restricted into subtypes using predicates. For example, \cl{integer}s are defined as a subtype of \cl{rational}s with the predicate \cl{integer\_pred}. This way, when an expression is passed to a function ranging over integers, the typechecker generates the TCC "argument must verify the predicate \cl{integer\_pred}". That TCC must then be proven (it is often proven automatically for such simple TCCs). \\
 
 The Figure~\ref{fig:PVS-CLOS-types} describes how PVS type system is represented in CLOS. 
 
 
-\subsubsection{Translating rules}
-PVS types:\\
-boolean, number, number\_field, real, 
-rational, integer, $A \rightarrow B$, restricted types
-$\text{below}(10) := \{ x:\text{int} | 0 \leq x < 10 \} $)  \\
-enum
-datatype
+\subsubsection{C types}
+The C language \cite{huss2004c} has a few base types to represent bounded integers (\cl{int}, \cl{long}, etc). It allows to define enumerated types, structures containing several fields with different types. The variables with a pointer type have a memory address as a value. They can be used to reference arrays dynamically allocated in the heap.
 
+To represent big integers or rationals, we use the GMP library which introduces a few other types.
 
-This requires a type analysis to decide on the type of a PVS expression. For example the PVS \cl{int} type can be represented by the \cl{int}, \cl{unsigned long} or \cl{mpz\_t} C types. In that case, we study the range of the expression to decide which types are allowed to represent it. Then we take the context in which the expression appears to decide. For instance in
-\begin{lstlisting}
-incr(x:below(10)):int = x+1
-\end{lstlisting}
-the \cl{x} expression, result of the function \cl{incr} can always be represented by an \cl{int} or \cl{unsigned long} in C but we choose here to represent it using a \cl{mpz\_t}.
-
-Intermediate type system :
-C-type with a flag : mutable (meaning that the expression it describes only has one pointer pointing to it.
-
-\begin{lstlisting}
-int a = 2;     a : int[mutable]
-int* a = malloc( 10 * sizeof(int*) );  
-\end{lstlisting}
-
-destructive addition:
-
-\begin{lstlisting}
-d_add(*mpz_t res, mpz_t[mutable] a, long b) {
-  mpz_add(a, a, b);
-  (*res) = a;
-}
-\end{lstlisting}
-
-Rq : \cl{d\_add} is given a mutable \mpzt, meaning that it can modify it and is responsible for freeing it.
-It is also responsible for allocating memory for the result.
-Here it uses the memory to assign res.
-
-
-
-Use an intermediate language :
-
-\begin{lstlisting}
-( expr, C-type[mutable] )
-\end{lstlisting}
-
-Conversions and copies create mutables types (at a cost) :
-\cl{a[mutable]\_from\_b}
-
-\cite{fillcomp}
-
-
-
-
-
-
-
-C types:\\
-\cite{huss2004c}
 \begin{lstlisting}[caption=C types]
 // integer and floating point types
 [unsigned] char, int, long, double
-type*  //arrays
-char*  // strings
+type*         //arrays
+char*         // strings
 struct types  // structures with fields
-enum types
+enum types    // enumerated types
+mpz_t, mpq_t  // GMP library
 short int, float, union, size_t // etc...
 \end{lstlisting}
 
 
-Translation rules :
+\subsubsection{Translation rules}
+The translation of PVS types requires a type analysis to decide on the type of a PVS expression.
 
+For instance the translation of the PVS \cl{int} type can be done using the \cl{int}, \cl{unsigned long} or \cl{mpz\_t} C types. In that case, we need to study the range of the expression to decide which types are best to represent it. Then we take the context in which the expression appears to decide. For instance when a variable \cl{x} is typed with a subtype that bounds the range of the values \cl{x} can take, we can safely represent it with a C bounded type.
+\begin{lstlisting}
+incr(x:below(10)):int = x+1
+int incr(int x) { return x+1; }
+\end{lstlisting}
+In that case, we not only decide to represent \cl{x} with an integer but also the expressions \cl{1} and \cl{x+1} as well as the return value of \cl{incr}. This requires an range analysis to realize that $\cl{1} \in [1;1]$ and $\cl{x+1} \in [1;10]$ can both be represented by the \cl{int} type.\\
+
+When such optimizations are impossible we have to rely on bigger base types or use the GMP types which can generate a much less readable code (see Section~\ref{sec:Concl}, Figure~\ref{fig:exGMP}) and often requires a few conversions. \\
+
+We decide represent functions ranging over integer bounded type with index starting at 0 with arrays and other with closures. It is the responsibility of the user who needs an efficient representation with C arrays to use such types.\\
+
+We describe here a few translation rules
 \begin{figure}[!ht]
 \begin{tabular}{|l|l|}
 \hline
@@ -385,30 +349,24 @@ We perform two main analysis on the intermediate language.
 \section{Update expressions}
 \label{sec:UpdateExpr}
 
- It is a complicated problem to decide while compiling a functionnal language whether an update expression should be translated into a destructive or non destructive update in the target imperative language.\\
+It is a complicated problem to decide while compiling a functional language whether an update expression should be translated into a destructive or non destructive update in the target imperative language.\\
 
-Update expressions are represented by PVS as \texttt{update-
-expr} objects.
+PVS update expressions are represented in CLOS as \texttt{update-expr} objects
+$$ E := \cl{ $T$ with [ ($e1$) := $e2$ ] } $$
+where $T$ is an expression typed as a function and therefore might be represented in C as an array (if domain type is \cl{below($n$)}.
+We want to know if we can update $T$ in place to obtain a C object representing $E$ or if we have to make a copy of $T$ and update the copy.\\
 
-$$ E := \texttt{ t with [ e1 := e2 ] } $$
-
-Problem :
-\cl{t} is an expression typed as a function. Therefore it might be represented in C as an array (if domain type is \cl{below($n$)}.
-We want to know if we can update \cl{t} in place to obtain a C object representing $E$ or if we have to make a copy of \cl{t}.
-
-
-We consider a few solutions to this problem.
-
+We discuss here a few solutions to this problem and describe how they are or could have been implemented in the translator.
 
 \subsection{Pointer counting}
 
-Several systems rely on a reference couting garbage collectors. This family of garbage collectors has many advantages \cite{jonesgarbage}. Along with its simplicity and the instantaneity of garbage identification, the one we are interested in is the possibility to determine when a local variable is the only pointer to a complex data structure. In that case, at the cost of a simple test, we can avoid copies and perform destructive updates. \\
+Several systems rely on a reference counting garbage collectors. This family of garbage collectors has many advantages \cite{jonesgarbage}. Along with its simplicity and the instantaneity of garbage identification, the one we are interested in is the possibility to determine when a local variable is the only pointer to a complex data structure. In that case, at the cost of a simple test, we can avoid copies and perform destructive updates. \\
 
-The idea is to keep track of the number of pointers pointing to an array or a struct. If an array is referenced in several portions of the code (nested reference in other data structure, local variable in calling function, ...) then we mus be able, using the pointer counter, to perform all updates non destructively to avoid inconsistency.\\
+The idea is to keep track of the number of pointers pointing to an array or a struct. We can detect, by checking the pointer counter, if an array is referenced in several portions of the code (nested reference in other data structure, local variable in calling function, ...) and then perform all updates non destructively to avoid inconsistency.\\
 
 We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage} and integrate it to the C code generated.\\
 
-The GC consists on a hashtable of pointer counters that we maintain during the execution of the code. Each pointer to data allocated on the heap is a key in the hastable to which we associate an int counter as value. We then make sure that all memory allocations in the code make a call to the GC to "declare" the new memory.
+The GC consists in a hashtable of pointer counters that we maintain during the execution of the code. Each pointer to data allocated on the heap is a key in the hashtable to which we associate an int counter as value. We then make sure that all memory allocations in the code make a call to the GC to "declare" the new memory. The GC we implemented is described Figure~\ref{fig:GC.h}.
 
 \begin{tabular}{|p{5cm}|p{11cm}|}
 \hline
@@ -440,8 +398,6 @@ t[0] = (T*) GC( b );
 \end{lstlisting}
 This time, we also make sure the reference counter of \cl{t[0]} is decremented and \cl{t[0]} has a chance to be freed if nothing else points to it.\\ \hline
 \end{tabular}
-
-This requires to build our own C garbage collector \ref{fig:GC.h}.
 
 \begin{figure}
 \begin{lstlisting}
@@ -481,32 +437,11 @@ int       GC_free(void* pointer);
 
 \subsubsection{How to use it}
 
-The garbage collector mus be used for every manipulation of pointers to memory allocated on the heap. This occurs typically when representing PVS arrays or data structure. These rrays are created in the code.\\
+The garbage collector must be used for every manipulation of pointers to memory which was dynamically allocated on the heap. This occurs typically when representing PVS arrays or data structure. \\
 
-%% Deprecated example...
-%\begin{lstlisting}
-%int* f() {
-%  int* res;
-%  res = (int*) GC_alloc( 10 * sizeof(int) );
-%  [... init res...]
-%  return res; // pointer count = 1
-%}
-%
-%void main() {
-%   int* a = f();  // pointer counter of a = 1
-%   int** b = (int**) GC_alloc( sizeof( int*) );
-%   GC_free( b[0] );  // useless
-%   b[0] = (int*) GC( a );  // pointer counter of a = 2
-%   printf("f(0) = %s", b[0][0]);
-%   GC_free(b); // frees b, pointer count of a = 1
-%   GC_free(a); // frees a
-%}
-%\end{lstlisting}
+When \cl{A} points to an array (or \cl{struct}) we want to update destructively, we first have to check if the pointer counter on \cl{A} is 1. If so, we can update in place because only the local variable \cl{A} points to the array.\\
 
-
-When \cl{A} points to an array (or \cl{struct}) we want to update destructively, we first check if the pointer counter on \cl{A} is 1. If so, we can update in place because only the local variable \cl{A} points to the array.\\
-
-However, we need to be carefull.
+However, we need to be careful.
 $$ \cl{g(A:Array) : int = f(A, A WITH [(0) := 3] )}$$
 should not be translated to
 \begin{lstlisting}
@@ -521,8 +456,13 @@ for (at least) two reasons:
 \item \cl{f} is given twice a pointer to the same data structure. Its reference counter should be incremented.
 \end{itemize}
 
-Instead we could flatten the expression \ref{fig:exampleGC}.
-
+Below are a few rules a good use of the GC should follow (see Figure~\ref{fig:exampleGC}).
+\begin{enumerate}
+\item All dynamically allocated memory on the stack should be done using the GC.
+\item All function is responsible for freeing all its arguments. Indeed, the local variable implicitly created to represent the argument is itself a pointer to the structure.
+\item All argument passed to a function must have its counter incremented via the GC.
+\end{enumerate}
+However a few optimizations are possible. For instance if a variable has its counter incremented before being passed to a function and is then freed right after, then it can be directly passed and rely on the function call to free it.
 \begin{figure}[!ht]
 \begin{lstlisting}
 void main() {
@@ -564,39 +504,37 @@ g(int* A) {
 \label{fig:exampleGC}
 \end{figure}
 
+But again, we are lucky here that \cl{A} is the first argument of \cl{f}. If the updated \cl{A} were the first arguments, the update would have been done destructively.\\
 
-But again, we are lucky here that \cl{A} is the first argument of \cl{f}. If the updated \cl{A} were the first arguments, the update would have been done destructively.
-This is why the GC alone is not enoug. We need an analysis of the C code to determine whether a variable is goingto be used later in the code or not. cf \hyperref[Canalysis]{\ref*{Canalysis} Analysis of the C code}.
+This is why the GC alone is not enough. We need an analysis of the C code to determine whether a variable is going to be used later in the code or not (\safe occurrence, cf \hyperref[Canalysis]{\ref*{Canalysis} Analysis of the intermediate language}).
 
 
 \subsubsection{Pros and cons}
 
-The use of a garbage collector integrated in the C code seems like a good idea when translating a functionnal language to C. Using a pointer counting GC allows to 
+The use of a garbage collector integrated in the C code seems like a good idea when translating a functional language to C. Using a pointer counting GC allows to dynamically allocate memory on the heap and pass or return such dynamically allocated object without worrying about where and when they are going to be freed.\\
 
-We need an analysis of the C code for two reasons:
+We however need an analysis of the C code for several reasons:
 \begin{itemize}
 \item To \cl{GC\_free} variable as soon as they are not needed anymore. Otherwise copies that could be avoided are performed because an other (useless) pointer still points to the structure we're interested in.
 \begin{lstlisting}
-  int* B = GC( A );
-  update(B, 0, 1); // Can't be done destructively because A also points to
-  GC_free(A);     // the same data as B
-  f( GC(B) );     // f is given a variable with a reference counter of 2.
-  GC_free( B );   // It might not be able to perform some update destructively
+int* B = GC( A );
+update(B, 0, 1); // Can't be done destructively because A also points to
+GC_free(A);      // the same data as B
+f( GC(B) );      // f is given a variable with a reference counter of 2.
+GC_free( B );    // It might not be able to perform some update destructively
 \end{lstlisting}
 Should be
 \begin{lstlisting}
-  int* B = A;
-  update(B, 0, 1);  // Can be done destructively
-  f( B );           // f is given a variable with a reference counter of 1.
+int* B = A;
+update(B, 0, 1);  // Can now be done destructively
+f( B );           // f is given a variable with a reference counter of 1.
 \end{lstlisting}
-\item 
-\end{itemize}
-
-Every update require now tests and calls to hashtable functions. This is a small cost compared to the copying it may allow to avoid but no so small compared to a single in place update that could be decided by a code analysis.\\
-
-Besides, the code gets much bigger since every update or copy requires the code to both destructive and non destructive operation and the if statement to decide which one to use.
-
-Passing argument to function :
+\item Every update require now tests and calls to hashtable functions. This is a small cost compared to the copying it may allow to avoid but no so small compared to a single in place update that could be decided by a code analysis.
+\item Besides, the code gets much bigger since every update or copy requires the code to both destructive and non destructive operation and the if statement to decide which one to use. For instance, passing arguments to a function adds quite some code
+\begin{center}
+\begin{tabular}{|c||c|}
+\hline
+GC use & Static analysis optimization \\ \hline
 \begin{lstlisting}
 int* f(int* arg) {
    int* result;
@@ -613,57 +551,81 @@ int* f(int* arg) {
    return result;
 }
 \end{lstlisting}
-
-This add quite some code compared to the simple :
-
+&
 \begin{lstlisting}
 int* f(int* arg) {
    arg[0] = 3;
    return arg;
 }
-\end{lstlisting}
+\end{lstlisting} \\ \hline
+\end{tabular}
+\end{center}
+
+\end{itemize}
 
 
 
 
-\subsection{Using a different data structure}
+\subsection{Using a more adapted data structure}
 
-The Lisp code generated by PVS and used for example by the ground evaluator to compute PVS expressions represents PVS arrays with a more complex data structure than a simple array. It basically consists in an array and a replacement list. Every time an update on \cl{(A, l)} is performed, the result is a pointer to the same array \cl{A} and a replacement list with an extra term: \cl{(A, (0:=0) :: l)}. When the length of the list becomes too big, we create a new array \cl{A'} by applying the replacement terms to a copy of \cl{A} and we return \cl{(A', nil)}.\\
+The Lisp code generated by PVS and used for example by the ground evaluator to compute PVS expressions represents PVS arrays with a more complex data structure than a simple array. It basically consists in an array and a replacement list. Every time an update on \cl{(A, l)} is performed, the result is a pointer to the same array \cl{A} and a replacement list with an extra term.
+\begin{eqnarray}
+\cl{T} &\Longrightarrow& \cl{(A, l)} \\
+\cl{T[(0) := 0]}&\Longrightarrow& \cl{(A, (0:=0) :: l)}
+\end{eqnarray}
+When the replacement list becomes too long (longer than $\tau(n)$), we create a new array \cl{A'} by applying the replacement terms to a copy of \cl{A} and we return \cl{(A', nil)}. The hope is that by the time we need to perform this copy, nothing else points to the old array so that it is garbage collected immediately. The trade off can be summarized with:
+
+\begin{center}
+\begin{tabular}{|l|l|p{10cm}|}
+\hline
+ & Copied array & New data structure \\ \hline
+Update time & $O(n)$ & $O(n)$ (if copying is needed) but most of the time $O(1)$.  \\ \hline
+Update space & $O(n)$ & $O(n)$ (if copying is needed and the old array is not garbage collected) but most of the time $O(1)$. \\ \hline
+Access time & $O(1)$ & $O(\tau(n))$ since we need to read the replacement list. \\ \hline
+\end{tabular}
+\end{center}
 
 We could represent C data structure with a similar C structure. For example :
+\begin{center}
+\begin{tabular}{ccc}
 \begin{lstlisting}
-struct r_list {
+struct array_int {
+   int *data;
+   r_int_list* replacement_list;
+};
+\end{lstlisting}
+&  \hspace{2cm} &
+\begin{lstlisting}
+struct r_int_list {
    int key;
    int value;
    r_list* tl;
 };
-struct array_int {
-   int *data;
-   r_list* replacement_list;
-};
 \end{lstlisting}
+\end{tabular}
+\end{center}
 
-Each structure represent the array \cl{data} with the modifications contained in the linked list \cl{r\_list\_int}.\\
-
-As in the previous solution, we have the following issues:
+We have the following issues:
 \begin{itemize}
-\item This adds some extra code
-\item This adds some extra computation. We need runtime tests for updates, and access to an element not requires reading the whole replacement list.
-\item This relies on lot on the GC.
+\item This adds some extra code both to implement the new data structures and algorithms and to use them.
+\item This adds some extra run time for reading accesses which require reading the whole replacement list.
+\item This relies a lot on the GC.
 \end{itemize}
 
 
 \subsection{Flow analysis on the PVS code}
 
-An other optimization would be to perform a analysis on the PVS expressions. Shankar \cite{shankar02} and later Pavol \cite{pavol} suggest several analysis based on flow analysis that allow to replace non destructive updates with destructive updates.\\
+An other optimization would be to perform an analysis on the PVS expressions. Shankar \cite{shankar02} and later Pavol \cite{pavol} suggest several analysis based on flow analysis that allow to replace PVS non destructive updates with destructive updates.\\
 
-This requires the definition of two versions of each function. A safe version performing no destructive update that can always be called and an other "destructive" version that can only be called under certain condition on the arguments. However because of these conditions, the body of that destructive version is allowed to perform safe destructive update and may call destructive versions of functions.
+These analysis require the definition of two versions of each function. A safe version that can always be called and never  performs any destructive update and an other "destructive" version that can only be called under certain conditions on the arguments. However thanks to these conditions, the body of that destructive version is allowed to perform safe destructive update and may call destructive versions of functions.\\
+
+We didn't implement these analysis into the translator but they inspired the static analysis on the intermediate language described next.
 
 
 \subsection{Analysis of the intermediate language}
 \label{Canalysis}
 
-The solution we decided to implement consists in an analysis on the intermediate language before generating the actual output C code.\\
+One of the solutions we decided to implement to solve the update problem  consists in an analysis on the intermediate language before the optimization and generation of the actual output C code.\\
 
 We also use two different versions of a PVS function called $f$ and $f^d$. Our analysis differs from Shankar and Pavol's preivous work in (at least) the following:
 \begin{itemize}
@@ -1191,7 +1153,7 @@ Simple induction proof on the expression form.
 
 
 
-\subsection{Analysis of update context}
+\subsection{Update contexts}
 
 The advantage of using contexts is to be able to place critical expressions like updates into a context where the evaluation order is well defined and we can identify expression evaluated before and after the reduction of a critical redex like a function call or a destructive update. These two being the only redexes that can modify the heap store in place.\\
 
@@ -1251,7 +1213,7 @@ $$ Cv(U)(X) \cap Lv(U) = \emptyset $$
 
 
 
-\subsubsection{Analysis}
+\subsection{Analysis}
 
 We consider here a function $f$ which declaration body $e$ doesn't contain any destructive update before the analysis. The reason is that a safe, naive translation from PVS to this language would only perform non destructive updates.
 
@@ -1291,7 +1253,7 @@ $$ \text{All  } Cv(U)(x_i) \text{ for } g^d_i \in BA(g^d) \text{ and } Lv(U) \cu
 For all non destructive version of a function $f$, $ BA(f) = \emptyset$.
 \end{proposition}
 
-\subsubsection{Proof of bisimulation}
+\subsection{Proof of bisimulation}
 
 We define the accessible cells, from a variable $X$ given a store $S$ as the set of all references (heap store entries) that can be accessed from the variable $X$.
 $$ Ac(S)(X) := R \cap S^{\infty}(X)$$
@@ -1371,6 +1333,7 @@ It can easily be verified for every redex. When $a = U\ucont{b}$, we have $Lc(a)
 
 \newpage
 \section{Conclusion}
+\label{sec:Concl}
 
 We have described the general architecture of the translator from PVS to the C language we implemented and integrated into PVS. We have provided a few examples of its execution on simple examples to illustrate its mechanisms.
 
