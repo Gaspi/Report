@@ -65,11 +65,11 @@ hyperref=true,
 \newcommand{\mpzt}{ \texttt{ mpz\_t } }
 \newcommand{\mpqt}{ \texttt{ mpq\_t } }
 
-\newcommand{\mut}{  \textbf{ mutable } }
-\newcommand{\nmut}{ \textbf{ non-mutable } }
-\newcommand{\bang}{ \textbf{ mutable } }
-\newcommand{\safe}{ \textbf{ safe } }
-\newcommand{\dupl}{ \textbf{ duplicated } }
+\newcommand{\mut}{\textbf{mutable }}
+\newcommand{\nmut}{\textbf{non-mutable }}
+\newcommand{\bang}{\textbf{mutable }}
+\newcommand{\safe}{\textbf{safe }}
+\newcommand{\dupl}{\textbf{duplicated }}
 
 % evaluation context hole
 \newcommand{\econt}[1]{[#1]}
@@ -343,6 +343,7 @@ We perform two main analysis on the intermediate language.
 \item The first one consists in replacing non destructive updates with destructive updates as often as possible. The algorithm is described in Section~\ref{sec:UpdateExpr} and the analysis itself is described in Section~\ref{sec:StaticAnal}.
 \item 
 \end{itemize}
+
 
 
 
@@ -641,7 +642,7 @@ We define three flags:
 \begin{itemize}
 \item \bang means that the variable is the only pointer to the structure or array it points to. For instance if we have \cl{f(A:Arr):Arr = A WITH [(0) := 0]} then when \cl{f} is called in
 $$ \cl{let A = lambda(x:int):x in let B = f(A) in B(0)} $$
-we know that \cl{f} can update \cl{A} in place. We call the following version of \cl{f}.
+we know that \cl{f} can update \cl{A} in place because only $A$ itself points to the newly created array and $A$ is not needed later in the code. We call the following (destructive) version of \cl{f}.
 \begin{lstlisting}
 int* f(int* A) {
   A[0] = 0;
@@ -671,48 +672,55 @@ int* B = id(A);
 \\ For instance, A should probably not be modified in place
 ...
 \end{lstlisting}
+This flag detects the arguments whose reference can be trapped in the result of a function call. This allows to properly maintain the \bang flag.
 \end{itemize}
 
-To connect with the analysis Section~\ref{sec:StaticAnal}, we could say that
+
+
+
+We want to ensure the following properties on the flags.\\
+\newline
+
+\safe flag:
 \begin{itemize}
-\item If $f(f_i) := U\ucont{\cl{set(}x\cl{, }a\cl{); }e}$, the variable $x$ is flagged \bang when all $Ov(a)$ are flagged \bang as well and are neither live in $U$ nor free in $e$.
-\item If $f_i$ is flagged \bang, then $f_i \in BA(f)$. This is why we ensure no arguments in non destructive versions of functions are flagged \bang.
-\item A occurrence of a variable $x$ is flagged \safe when this variable is not live in the context of that occurrence.
-\item An expression $a$ is flagged \dupl when $Av(a) \subset Av(e)$. We are only interested in the arguments of $f$ that are flagged \dupl though.
+  \item Only a single occurrence of a variable may be flagged \safe.
+  \item An occurrence of a variable $x$ is flagged \safe in an instruction iif $x$ occurs once in the instruction and never after.
 \end{itemize}
 
-We want to ensure the following properties on the flags
+\dupl flag
 \begin{itemize}
-\item Only function declarations and variables with type struct or array can be flagged \bang.
-\item Only a single occurrence of a variable may be flagged \safe.
-\item Only expressions and arguments can be flagged \dupl.
-\item The last and only the last occurrence of a variable is flagged \safe.
-\item Arguments of a non destructive function are never flagged \bang.
-\item A function is flagged \bang iif its return variable is flagged \bang.
-\item A variable may be flagged bang if it is created with a \cl{copy}, \cl{init\_array}, \cl{init\_record} or is the result of a call to a function flagged \bang.\\
+  \item Only expressions and arguments can be flagged \dupl.
+  \item If a variable is once flagged \dupl, then if it is an argument, this argument is also flagged \dupl.
+\end{itemize}
+
+\bang flag:
+\begin{itemize}
+  \item Only functions and variables with struct or array (return) types can be flagged \bang.
+  \item Arguments of a non destructive function are never flagged \bang.
+  \item A function is flagged \bang iif its return variable is flagged \bang.
+  \item A variable may be flagged bang if it is created with a \cl{copy}, \cl{init\_array}, \cl{init\_record} or is the result of a call to a function flagged \bang.\\
 It may not be flagged \bang if it is the result of a call to a function not flagged \bang.
-\item A call to a destructive function \cl{f\_d( $a_i$, $b_j$, $c_k$ )} (where $a_i$ are flagged \bang and $b_j$ are flagged \dupl and $c_k$ are not flagged) may only occurs if the following conditions on the arguments passed $( A_i, B_j, C_k )$ are met:
+  \item A call to a destructive function \cl{f\_d( $a_i$, $b_j$, $c_k$ )} (where $a_i$ are flagged \bang and $b_j$ are flagged \dupl and $c_k$ are not flagged) may only occurs if the following conditions on the arguments passed $( A_i, B_j, C_k )$ are met:
 \begin{itemize}
-\item All $A_i$ are either calls to functions flagged \bang or variables flagged \bang and \safe.
-\item All $B_j$ are either calls to functions or variables flagged \safe or not flagged \bang.
-\item If the function call is flagged \dupl, then all $B_j$ are also flagged \dupl.
+   \item All $A_i$ are either calls to functions flagged \bang or variables flagged \bang and \safe.
+   \item All $B_j$ are either calls to functions or variables flagged \safe or not flagged \bang.
+   \item If the function call is flagged \dupl, then all $B_j$ are also flagged \dupl.
 \end{itemize}
-\item If a variable is once flagged \dupl, then if it is an argument, this argument is also flagged \dupl.
 \end{itemize}
 
 
-
-\subsubsection{Algorithm}
+\subsubsection*{Algorithm}
 
 Each PVS function is translated into two different C functions:
 \begin{itemize}
 \item A "cautious" non destructive version whose arguments are never \bang and therefore never modifies the arguments in place, always making copies when necessary. This doesn't mean this function can't make destructive update. For instance locally created arrays (using \cl{init\_array}) will be flagged \bang and might be destructively updated, should the conditions be met.
 \item A destructive version which requires as many arguments as possible to be \bang and tries to do destructive updates as often as possible. This function only requires \bang arguments if it uses it destructively though.
 \end{itemize}
+The main difference between the two is that a non destructive function's arguments are never flagged \bang. See Listing~\ref{lst:ex2versions} for an example.
 
 
-\begin{figure}
-\begin{lstlisting}
+
+\begin{lstlisting}[numbers=left,caption={Example of the two different versions of a C function generated (stripped from GC instructions)}, label={lst:ex2versions}]
 f(int* A, int* B) {         // A and B are both flagged duplicated
    if (A[0] == 0) {
       return B;
@@ -734,205 +742,88 @@ f_d(int* A, int* B) {  // A and B are both flagged mutable and duplicated
    }                    //    both arg1 and A are flagged mutable
 }
 \end{lstlisting}
-\caption{Example of the two different versions of a C function generated (stripped from GC instructions)}
-\end{figure}
 
+The algorithm is described Figure~\ref{fig:algo}. It terminates since \dupl the flags can only be added, \bang flags are removed for good and \safe flags can only be removed.
 
-
-
-\begin{figure}
+\begin{figure}[!ht]
 \begin{itemize}
-\item Create the two versions of a function
-\item Flag all arguments \bang in destructive version
-\item Perform several passes and move flags to make sure the properties Figure~\ref{fig:properties} are verified.
-\item Modify the code if the flags allow it according to the rules defined in the Annex~\ref{Rules}.
+\item Create the two versions of each function initialized with the same body containing no destructive update or function call.
+
+\item For each function:
+\begin{itemize}
+\item Flag all arguments \bang in the destructive version only.
+
+\item Perform several passes \bang analysis.\\
+We flag a variable $x$ when $x$ is initialized with.
+  \begin{itemize}
+    \item A newly created array (\cl{array(x)}).
+    \item An update (destructive or not).
+    \item A call to a function with a \bang return type.
+  \end{itemize}
+We remove the \bang flag definitely of a variable $x$ when
+  \begin{itemize}
+    \item $x$ never occurs destructively
+    \item $x$ gets duplicated before its last occurrence
+  \end{itemize}
+This allows to make sure the \bang properties are verified.
+
+\item Perform a backward pass \dupl analysis.\\
+If $x$ is flagged \dupl, then if $x$ is set to...
+  \begin{itemize}
+    \item ... a function call, flag \dupl all variables passed as \dupl arguments.
+    \item ... an other expression, flag \dupl all the active variables of that expression.
+  \end{itemize}
+
+\item Perform a \safe analysis to flag all variables \safe if they fulfill the rules described above.
+
+\item Modify the code if the flags allow it according to the rules defined in the Annex~\ref{Rules}. This may consists in renaming variable, changing the version of a function called, 
+
 \item Redo the two previous steps until stabilization.
 \end{itemize}
+\end{itemize}
 \caption{Algorithm}
+\label{fig:algo}
 \end{figure}
 
 
+\newpage
+\subsubsection*{Link with the analysis}
 
-
-
-In destructive versions of all functions :
-Flag all array arguments to "mutable".
-Then for each of these arguments :
-  - If it never occurs destructively, then remove flag
-          (function just read the arg)
-  - If it occurs destructively, it can never occur at all AFTER.
-  -> Need to define the order of evaluation of expression
-      (easy rules on simple expressions)
-  -> Need to be able to detect occurrences of a name-expr
-  -> Otherwise, unflag the arg
-
-A variable $V$ of type array is created in these cases:
+To connect with the analysis Section~\ref{sec:StaticAnal}, we could say that
 \begin{itemize}
-\item \cl{$V$ = $\lambda$x.e(x)} : $V$ has bang type
-\item \cl{update($V$, $T$, key, value)} : $V$ has bang type because this is basically a copy and a destructive update.
-\item \cl{f($V$,...) = ...} : type of $V$ depends on \cl{f}.
-\end{itemize}
-In these case, it has always bang type.\\
-Or it can be set to an other referenced object.
-\begin{itemize}
-\item \cl{$V$ = $T$} $\rightarrow$ $V$ (should have bang type iff $T$ has !type too and never occurs afterwards). Happens in 
-\item \cl{$V$ = $T$[i]} $\rightarrow$ depends on the target type of $T$.
-\item \cl{$V$ = $T$.field} $\rightarrow$ depends on the type of the field.
-\end{itemize}
-At first all updates are non destructive.
+\item A occurrence of a variable $x$ is flagged \safe when this variable is not live in the context of that occurrence.
 
-First pass : All array variables (actuals and local variables) found in the code are flagged. Local variables are flagged according to the previous rules and actuals are flagged \textbf{mutable} in destructive version and \textbf{not mutable} in non-destructive versions. In functions returning an array (or record type), the variable result is also flagged.\\
+\item The variables flagged \bang correspond to the variables that could be critical variables in a context. \\
 
-Other passes :
-Reading the code backwards, for every occurrence $T$ of a variable flagged \textbf{mutable}:
-\begin{itemize}
-\item If it is found in a \cl{$V$ = $T$} instruction, then we give the bang type to $V$ and remove bang type from $T$ so that previous occurrences of $T$ won't assume the uniqueness of the reference. This adds a new variable to the set of bang variables, hence the need to make several passes.
-\item If it is used in a \cl{$V$ = copy($T$)} instruction, then we replace it with a \cl{$V$ = $T$} instruction and do as previous.
-\item If it is found in an \cl{update($V$, $T$, i, e}, then turn that into \cl{$V$ = $T$; destr\_update($V$, i, e) }.
-\item If it is a function call 
-\item If we reach the declaration of a variable that is marked \textbf{mutable}, this means this variable is never read. In that case, we actually don't need it (unflag it I guess...).
+If $f(f_i) := U\ucont{\cl{set(}x\cl{, }a\cl{); }e}$, the variable $x$ is flagged \bang when all $Ov(a)$ are flagged \bang as well and \safe. This means all the critical variables of $x$ are neither live in $U$ nor free in $e$.\\
+Then if $x$ is used in a way such that it could get trapped into an other structure (active arguments of a function call, unsafe destructive update, etc) then it loses its \bang attribute.
+
+\item Arguments $f_i$ are flagged \bang, when $f_i \in BA(f)$. This is why we ensure no arguments in non destructive versions of functions are flagged \bang.
+
+\item An expression $a$ is flagged \dupl when $Av(a) \subset Av(e)$. We are only interested in the arguments $f_i$ of $f$ that are flagged \dupl though.
 \end{itemize}
 
-At the end, when we have reached the transitive closure of this definition, if we reach the beginning of the function and some arguments are still bang, this means their bangness is never used, put the flag on that argument to \cl{non mutable} and remove the instructions freeing that variable (reminder : mutable arguments of a functions are freed inside the function or are used in a mutable way and appear somewhere in the result (trapped in closures) or are freed in other function calls.
-
-
-
-\subsubsection{Algorithm}
-
-
-
-
-All variables have three flags: $M$ (mutable), $D$ (duplicated) and $T$ (treated).
-
-Init:\\
-All arguments of a destructive function are flagged \cl{($M$ = true, $D$ = false, $T$ = true)}.\\
-All arguments of a non destructive function are flagged \cl{($M$ = false, $D$ = false, $T$ = true)}.\\
-All other variables are flagged \cl{($M$ = false, $D$ = false, $T$ = false)}.\\
-
-Rules:\\
-When $M$ is changed, $T$ is set to \cl{true}.\\
-When $T$ is \cl{true}, the flag $M$ can only be set to \cl{false}.
-This prevent infinite change of the flag $M$.\\
-The flag $D$ can only be set to \cl{true}.\\
-
-
-
-Initialization:\\
-
-
-We initialize a set $M$ of mutable variables to all array arguments of a function $f$.
-We also initialize a set $F$ of variables to free to $M$ since $f$ has the resposnability to free all variables flagged as mutable arguments.\\
-
-We read the code backwards.\\
-$T_i$ refer to variables that are in the set $M$.\\
-$S_i$ refer to variables that are not in the set $M$.
-
-\begin{tabular}{|p{60mm}|p{90mm}|}
-\hline
-\cl{$S$ = $T$} & $M \leftarrow M \cup \{ S \} - \{T\}$ \newline $F \leftarrow F \cup \{ S \} - \{T\}$  \\ \hline
-\cl{$S$ = update($S_2$, key, value}) & $M \leftarrow M \cup \{ S \}$ \newline $F \leftarrow F \cup \{ S \}$ \\ \hline
-\cl{$S$ = update($T$, key, value}) & $M \leftarrow M \cup \{ S \}  - \{T\}$ \newline $F \leftarrow F \cup \{ S \}$ \\ \hline
-
-\cl{$S$ = g($T_i$, $S_i$}) & If the arguments of \cl{g} don't allow \cl{g} to be called destructively: \newline $M \leftarrow M - \{T_i \}$ \newline $M \leftarrow M \cup \{ S \}$ if return type of \cl{g} is \mut \newline $F \leftarrow F \cup \{ S\}$ \\ \hline
-
-\cl{$S$ = g($T_i$, $S_i$}) & Otherwise: \newline \cl{$\rightarrow S$ = g\_d($T_i$, $S_i$} \newline $M \leftarrow M \cup \{ S \}  - \{T\}$ \newline $F \leftarrow F \cup \{ S \}$ \\ \hline
-
-\cl{$S$ = $S_2$[i]} & $M \leftarrow M \cup \{ S \}  - \{T\}$ \newline $F \leftarrow F \cup \{ S \}$ \\ \hline
-
-
-\end{tabular}
-
-
-
-
-All arguments of the function are flagged \mut 
-
-
-
-
-What is a destructive occurrence :
-$$ E :=  \cl{f(  t with [ e1 := e2 ] , t(0) )} $$
-order of eval :
-e1 and e2  (t can occur non destr)
-t          ( expression of an update : destr)
-t(0)       ( occurrence of t (even non destr))
-
-\cl{f(x:Arr):int = g( h(t), t)}  is destructively translated to \\
-\begin{lstlisting}[numbers=left,caption=Example]
-int f_d(int* t) {   // t has type ! since this is destructive f
-  int* arg1 = h(t); // h can't be called destructively because
-                    // even though t is !, it appears later (line 4)
-  int* arg2 = t;    // t is ! and never appears later => arg2 is !
-  return g( arg1, arg2); // arg2 is ! but g can only be called
-}                        // destructively if arg1 is
-\end{lstlisting}
-
-if g has type \cl{[Array! -> ?]} then t can't be destructive\\
-
-if g has type \cl{[Array -> ?]} then t can be destructive
-
-First algorithm:
-
-
-Need multiple passes as the flags disappear
-
-
-\begin{figure}[!ht]
-\begin{tabular}{|p{50mm}|p{62mm}|p{45mm}|}
-\hline
-\cl{update(A, key, value)} & \cl{A[key] = value;} & \cl{A} must be \mut \\ \hline
-\cl{set(A, $expr$)} & \cl{A = $expr$;} \\ \hline
-\cl{declare(A, $expr(i)$)} & \begin{lstlisting}
-A = malloc(l * sizeof(T) );
-int i;
-for(i = 0; i < l; i++)
-   A[i] = i + 1;
-\end{lstlisting} & \\ \hline
-\cl{copy(A, B)} & \begin{lstlisting}
-A = malloc(l * sizeof(T) );
-int i;
-for(i = 0; i < l; i++)
-   A[i] = B[i];
-\end{lstlisting} & \\ \hline
-\cl{init(A)} & \cl{int* A;} & \\ \hline
-\cl{free(A)} & \cl{free(A);} & \\ \hline
-\cl{base(str, (A, B, ...))} & \cl{int aux = A[0] + B[1];} & \cl{A} and \cl{B} are only read. \\ \hline
-\cl{return} & \cl{return result;} & \\ \hline
-\end{tabular}
-\caption{C instructions}
-\end{figure}
-
-
-
-\begin{figure}[!ht]
-\begin{tabular}{|p{50mm}|p{50mm}|p{50mm}|}
-\hline
-\cl{value($cste$)} & \cl{42} & \\ \hline
-\cl{variable($type$, $name$)} & \cl{name} & \\ \hline
-\cl{call(f, $exprs$)} & \cl{f( $expr_1$, $...$, $expr_n$ )} & \\ \hline
-\end{tabular}
-\caption{C expressions}
-\end{figure}
-
-
-
-
-\subsection{Combination of solutions}
-
-We use the C code analysis to write some updates as destructive. However a few updates remain non destructive. For example:\\
-
-If a function is called but requires its two argument to be \mut  and only the first is \mut. Then the non-destructive version is called and the first argument gets copied even though it was \mut.\\
-
-If we perform an update on \cl{$T$[i]}, our analysis doesn't tell if \cl{$T$[i]} is \mut or \nmut.\\
-
-To prevent that, we also perform a GC check. An update is actually a test wether an object is \mut or not and the appropriate update.
 
 
 
 
 
-\newpage 
-\ \newpage
+\subsection{Implemented solution}
+
+We decided to implement a reference counting GC that we use to detect on the fly if a variable can be safely updated. However the main optimization is the analysis performed on the intermediate language. \\
+
+This analysis, however is far from perfect. For instance:
+\begin{itemize}
+\item If a function is called but requires its two argument to be \bang and only the first is. Then the non-destructive version is called and the first argument gets copied even though it was \bang.
+We would need probably a lot more versions of functions to solve that problem. However an analysis of all the function calls that are made could narrow the number of versions enough to allow their implementation. This would still increase the size of the code a lot, though.
+
+\item We never perform a destructive update on \cl{$T$[i]} which is never flagged \bang ($X^*$ variables are not handled). Our analysis is too simple to tell if \cl{$T$[i]} is \bang or not.\\
+
+To prevent that, we also perform GC checks when a safe update occurs. However a more complete implementation of the analysis Section~\ref{Canalysis} could probably solve a lot of these cases.
+\end{itemize}
+
+
+\newpage
 \section{Static analysis of the intermediate language}
 \label{sec:StaticAnal}
 
@@ -1436,7 +1327,7 @@ Correcting translator PVS to SMT-LIB
 \appendix
 
 \newpage
-\section{PVS Syntax and CLOS representation}
+\section{PVS syntax and CLOS representation}
 
 \begin{figure}[h]
 \input{includes/PVS-expr}
@@ -1491,38 +1382,42 @@ Correcting translator PVS to SMT-LIB
 
 
 \begin{figure}[!ht]
-\begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
+\begin{tabular}{|p{4.5cm}|p{6cm}|p{6.5cm}|}
 \hline
              & \cl{A} \safe & \cl{A} not \safe \\ \hline
-\cl{A} \mut  & Replace every occurrence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
+\cl{A} \mut  &
+\begin{lstlisting}
+A[k] = v;
+\end{lstlisting}
+Replace every occurrence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
 B = GC_malloc(...);
-for(i ...) {
+for(i ...)
   B[i] = A[i];
-}
+B[k] = v;
 \end{lstlisting} \\ \hline
 \cl{A} \nmut & \begin{lstlisting}
 if (GC_count(A) == 1) {
   B = A;
 } else {
   B = GC_malloc(...);
-  for(i ...) {
+  for(i ...)
     B[i] = A[i];
-  }
 }
+B[k] = v;
 \end{lstlisting} & \begin{lstlisting}
 B = GC_malloc(...);
-for(i ...) {
+for(i ...)
   B[i] = A[i];
-}
+B[k] = v;
 \end{lstlisting} \\ \hline
 \end{tabular}
-\caption{Rules for \cl{copy(B, A)}}
+\caption{Rules for \cl{set(B, A[(i) := v])}}
 \end{figure}
 
 
 
 \begin{figure}[!ht]
-\begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
+\begin{tabular}{|p{4.5cm}|p{6cm}|p{6.5cm}|}
 \hline
              & \cl{A} \safe & \cl{A} not \safe \\ \hline
 \cl{A} \mut  & Replace every occurrence of the variable \cl{B} by the variable \cl{A} & \begin{lstlisting}
@@ -1543,7 +1438,7 @@ If \cl{B} is flagged \dupl then \cl{A} must be too.
 
 
 \begin{figure}[!ht]
-\begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
+\begin{tabular}{|p{4.5cm}|p{6cm}|p{6.5cm}|}
 \hline
              & \cl{A} \safe & \cl{A} not \safe \\ \hline
 \cl{A} \bang  &
@@ -1562,33 +1457,6 @@ f(A)
 \end{figure}
 
 
-\begin{figure}[!ht]
-\begin{tabular}{|p{5.5cm}|p{5.5cm}|p{6cm}|}
-\hline
-             & \cl{A} \safe & \cl{A} not \safe \\ \hline
-\cl{A} \bang  &
-\begin{lstlisting}
-f(A)
-\end{lstlisting} & \begin{lstlisting}
-copy(B, A)
-f(B)
-\end{lstlisting} \\ \hline
-\cl{A} not \bang & \begin{lstlisting}
-f(A)
-\end{lstlisting} & \begin{lstlisting}
-f(A)
-\end{lstlisting} \\ \hline
-\end{tabular}
-\caption{Rules for \cl{f(A)} with \cl{A} flagged \dupl}
-\end{figure}
-
-
-
-
-
-
-\newpage
-\
 \newpage
 
 \section{Examples}
