@@ -111,24 +111,47 @@ A special thank Lori Truitt for all the help she provided with administrative pa
 \section{Introduction}
 
 
+
+
+In this section, we quickly describe PVS and the previous effort made in its translation. Then, we give in Section~\ref{sec:UpdateExpr} an overview of the different steps in the process of translating a functional, higher order, specification language into an imperative, low-level language such as C. We provides a few detail on the implementation of our translator and give examples of its execution. In Section~\ref{sec:UpdateExpr} we describe the issue of the translation of updates expressions and describe a few solutions, two of them being implemented in the translator. Finally we focus on the implemented static analysis in Section~\ref{sec:StaticAnal} and try to prove its correctness.
+
+
+
 \subsection{PVS Overview}
 
 PVS  (Prototype Verification System) is an environment for specification and proving. The main purpose of PVS is to provide formal support for conceptualization and debugging in the early stages of the life cycle of the design of hardware or software systems. In these stages, both the requirements and designs are expressed in abstract terms that are not necessarily executable. The best way to analyze such an abstract specification is by attempting proofs of desirable consequences of the specification. Subtle errors revealed by trying to prove the properties are costly to detect and correct at later stages of the design life cycle. \\
 
-The specification language of PVS is built on higher-order logic (functions can be treated like primitive types: functions can take functions as arguments and return them as values, quantification can be applied to function variables. Specifications can be constructed using definitions and axioms
+The specification language of PVS is built on higher-order logic: functions can be treated like primitive types: functions can take functions as arguments and return them as values, quantification (universal and existential) can be applied to function variables. Specifications can be constructed using definitions and axioms. \\
 
+PVS typechecking is not decidable and thus whenever the typechecker encounters a non trivial constraint for an expression to be type-correct, it relies on \emph{Type-Correctness Condition} (TCC), a formula that has to be proved by the user for the expression to actually be typed correct. For instance, trying to divide by some variable $x$ will automatically generate a TCC for the user to prove that that $x$, in the context of the call, can not be zero. \\
 
+A PVS file consists in one or several theories, that are somewhat similar to modules in OCaml and Python, or to packages in Java. The body of a theory consists in a serie of declarations of the form \cl{name:sort = def} where \cl{sort} is the “sort” of the declaration and \cl{def} is a PVS expression which can be a term expression (syntax described in Figure~\ref{fig:PVSsyntax}) or a type expression (syntax described in Figure~\ref{fig:PVS-types}). When the \cl{= def} part is omitted, the declaration is uninterpreted and the name now refers to some abstract value of \cl{sort}.\\
 
+The sort of the declaration can be:
+\begin{itemize}
+\item A PVS type expression, in which case the declaration defines a new value of that type. A TCC is generated to prove that the definition is of the given type unless no definition is given. In that case, a TCC might be generated to prove the type is non empty.
+\item \cl{TYPE} or \cl{NONEMPTY\_TYPE} (or \cl{TYPE+}), in which case the declaration defines a new type. A TCC might be generated to guarantee the non emptiness.
+\item A theorem-like keyword such as \cl{THEOREM} or \cl{LEMMA}, in which case the declaration defines a new theorem. A proof obligation is generated, and the theorem can be used in proofs in the remaining declarations
+in the file.
+\item An axiom-like keyword such as \cl{AXIOM} or \cl{POSTULATE}, in which case the declaration introduces a new axiom. No proof obligation is generated and the proposition can be used in proofs in the remaining declarations in the file.
+This can obviously introduce inconsistencies, and should be used with much care. It is often used in conjunction with uninterpreted declarations to define types or terms axiomatically instead of providing a definition.
+\end{itemize}
+
+In addition to that, the PVS \cl{DATATYPE} mechanism allows to define recursive sum types with constructors, accessors, and recognizers. There is no polymorphism in PVS, however \emph{theory parameters} allow to have some sort of genericity. Finally, another mechanism that we left out and that is worth mentioning is the \cl{IMPORTING} keyword which has a visibility effect and is required in the PVS implementation to be able to talk about a theory inside another theory.
 
 
 \subsection{Why translate PVS ?}
 
-Translating a specification language into an 
+Specification languages are made to be expressive rather than executable allowing the conceptualization and modelization of complex systems. However such systems are themselves made to be later executed and integrated into physical systems. For that reason, a model of a system needs to be implemented into a programming language. This can be done manually with the risk of making human mistakes in the translation process or this can be left to a automated translator which would preserve the high insurance properties that were proven on the model. Besides, the ability to run a model during its development phase allows debugging and testing.
+
+
+
 
 \subsubsection*{The HACMS Project}
 
-The DARPA-funded project High Assurance Cyber-Military System (HACMS) aims to produce systems and software with proved reliability and security. It uses the abstraction of nodes and topics to describe the different components and communication
-channels. A PVS model of these nodes and topics allows to prove security properties. However the project requires an implementation and integration of the proven algorithms into the system. For that purpose, a translator PVS to C would be very helpful since most of the ROS systems use the C language.
+The DARPA-funded project High Assurance Cyber-Military System (\href{http://www.darpa.mil/Our_Work/I2O/Programs/High-Assurance_Cyber_Military_Systems_(HACMS).aspx}{HACMS}) aims to produce systems and software with proved reliability and security. It uses the abstraction of nodes and topics to describe the different components and communication channels. A PVS model of these nodes and topics allows to prove security properties. \\
+
+This is a good example of system which requires an implementation and integration of the proven algorithms. For that purpose, a translator PVS to C would be very helpful since most of the ROS systems use the C language.
 
 \subsubsection*{Other translators}
 
@@ -165,7 +188,7 @@ In Figure~\ref{fig:PVS-CLOS}, we describe the Common Lisp Object System architec
 
 \item Translation: The translator flattens all PVS definitions to generates a program in an intermediate language which heavily relies on the use of intermediate variables to store the values of every expression. Besides, this form allows a simpler static analysis. The translation is briefly described in subsection~\ref{subsec:pvssyntax}. The syntax of this language is described Figure~\ref{fig:aux-syntax}.
 
-\item Static analysis: The intermediate language is analyzed and stripped from some of its unnecessary copies and non destructive updates using flow analysis. This analysis inspired from Shankar \cite{shankar02} and Pavol Cerny's \cite{pavol} previous analysis of PVS is described with more detail in Section~\ref{sec:StaticAnal}.
+\item Static analysis: The intermediate language is analyzed and stripped from some of its unnecessary copies and non destructive updates using flow analysis. This analysis inspired from Shankar \cite{shankar02} and Cerny and Shankar's \cite{pavol} previous analysis of PVS is described with more detail in Section~\ref{sec:StaticAnal}.
 
 \item Optimizations: Several simple analysis are performed to determine, for instance, where to declare and free variables as well as the most adapted C types to use. The output is a more complete and closer to C version of the intermediate language. The type translation is described in the subsection~\ref{subsec:pvstypes}. The code generated from that step can be described by the syntax in Figure~\ref{fig:Csyntax}. 
 
@@ -252,27 +275,8 @@ struct CT {
 \end{figure}
 
 
-
-We can only translate a subset of all PVS types.
-What's missing ?
-
-
-
-
-
-
-
-
-
-
-
-
 \subsection{Translating PVS syntax}
 \label{subsec:pvssyntax}
-
-
-We can only translate a subset of PVS syntax.
-What's missing ?
 
 
 Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i,d)$, where $t$ represents a C type used to describe the expression, $e$ is a simple expression, $i$ is a list of instructions to be executed prior to using $e$, the initialization of the expression. Finally $d$ is a list of instructions to be executed when $n$ isn't needed anymore, the destruction of $e$.
@@ -312,10 +316,6 @@ We then define two other operators:
 \end{itemize}
 
 
-
-
-
-
 \begin{lstlisting}
 number-expr "2"
 (C-int, "2", [], [])
@@ -336,17 +336,25 @@ application "f(e1, e2)"
 
 
 
-\subsection{Optimization of the intermediate language}
+\subsection{Optimization of the intermediate languages}
 
-We perform two main analysis on the intermediate language.
+In order to perform a few analysis, do not translate PVS directly to C but use two intermediate languages instead.
+\begin{enumerate}
+\item The first of these languages, which syntax is described Figure~\ref{fig:aux-syntax}, is meant to be simple, close enough to C so that optimization performed on it directly translate to C optimization and expressive enough to represent the whole subset of PVS we are interested in. \\
+
+On that language, we perform the analysis consisting in replacing non destructive updates with destructive updates as often as possible. The algorithm is described in Section~\ref{sec:UpdateExpr} and the analysis itself is described in Section~\ref{sec:StaticAnal}.
+
+\item The second language is very close to C but allows to manipulate the code easily and perform a few other optimizations.
 \begin{itemize}
-\item The first one consists in replacing non destructive updates with destructive updates as often as possible. The algorithm is described in Section~\ref{sec:UpdateExpr} and the analysis itself is described in Section~\ref{sec:StaticAnal}.
-\item 
+\item Determining the adapted C type (especially for integers and function types) to represent variables and adding call to conversion function when necessary.
+\item Detecting PVS primitive function calls and the adapted C function to call.
+\item Declaring the structures needed.
+\item Optimizing the position of declaration and destruction of pointer variables.
 \end{itemize}
+\end{enumerate}
 
 
-
-
+\newpage
 \section{Update expressions}
 \label{sec:UpdateExpr}
 
@@ -361,36 +369,42 @@ We discuss here a few solutions to this problem and describe how they are or cou
 
 \subsection{Pointer counting}
 
-Several systems rely on a reference counting garbage collectors. This family of garbage collectors has many advantages \cite{jonesgarbage}. Along with its simplicity and the instantaneity of garbage identification, the one we are interested in is the possibility to determine when a local variable is the only pointer to a complex data structure. In that case, at the cost of a simple test, we can avoid copies and perform destructive updates. \\
+Several systems rely on a reference counting garbage collectors. This family of garbage collectors has many advantages \cite{jonesgarbage}. Along with its simplicity and the instantaneity of garbage identification, the one we are interested in is the possibility to determine when a local variable is the only pointer to a complex data structure. In that case, at the cost of a simple test, we can safely avoid copies and perform destructive updates since we are sure no other variables elsewhere in the code is going to be affected by this in place update. We however need to make sure the variable we are updating itself is never used later.
 
-The idea is to keep track of the number of pointers pointing to an array or a struct. We can detect, by checking the pointer counter, if an array is referenced in several portions of the code (nested reference in other data structure, local variable in calling function, ...) and then perform all updates non destructively to avoid inconsistency.\\
-
-We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage} and integrate it to the C code generated.\\
-
-The GC consists in a hashtable of pointer counters that we maintain during the execution of the code. Each pointer to data allocated on the heap is a key in the hashtable to which we associate an int counter as value. We then make sure that all memory allocations in the code make a call to the GC to "declare" the new memory. The GC we implemented is described Figure~\ref{fig:GC.h}.
-
-\begin{tabular}{|p{5cm}|p{11cm}|}
+\begin{figure}[!ht]
+\begin{tabular}{|p{3.6cm}|p{12.5cm}|}
 \hline
 \begin{lstlisting}
-T* a = malloc(
-     10 * sizeof(int));
+T* a =
+  malloc(10 *
+    sizeof(int));
 \end{lstlisting} & \begin{lstlisting}
 T* a = (T*) GC_malloc(10 * sizeof(int));
 \end{lstlisting}
-All memory allocation are handled by the GC to make sure every new reference on the heap is in the reference table and has a pointer counter associated to it.
+All memory allocation in the heap are handled by the GC's \cl{GC\_malloc} to make sure every new reference on the heap is in the reference table and has a pointer counter associated to it.
 \\ \hline
-\begin{lstlisting}
-free(a);
-\end{lstlisting} & \begin{lstlisting}
-GC_free(a);
-\end{lstlisting}
-This will decrement the reference counter on \cl{a} and might free it if this counter is now 0. \\ \hline
 \begin{lstlisting}
 T* a = b;
 \end{lstlisting} & \begin{lstlisting}
 T* a = (T*) GC( b );
 \end{lstlisting}
-The reference count on \cl{b} is incremented to represent that the local variable \cl{a} now also points to the structure \cl{b} points to.\\ \hline
+The reference count on \cl{b} is incremented with \cl{GC} to represent that the local variable \cl{a} now also points to the structure \cl{b} points to.\\ \hline
+\begin{lstlisting}
+T* f(T* a) {
+  T* b = a;
+  T* c = b;
+  return c;
+}
+\end{lstlisting} & \begin{lstlisting}
+T* f(T* a) {
+  T* b = (T*) GC( a );
+  T* c = (T*) GC( b );
+  GC_free(b);
+  GC_free(a);
+  return c;
+}
+\end{lstlisting}
+The \cl{GC\_free} instruction will decrement the reference counter of its argument and might free it if this counter is now 0. We use it to decrement the pointer of all local pointers (including arguments) before they are deallocated from the stack. However we do not decrement the return variable since we don't want it to be freed (dangling pointer risk). \\ \hline
 \begin{lstlisting}
 t[0] = b;
 \end{lstlisting} & \begin{lstlisting}
@@ -398,9 +412,35 @@ GC_free( t[0] );
 t[0] = (T*) GC( b );
 \end{lstlisting}
 This time, we also make sure the reference counter of \cl{t[0]} is decremented and \cl{t[0]} has a chance to be freed if nothing else points to it.\\ \hline
+\begin{lstlisting}
+{
+  T** t = a;
+  [...]
+}
+\end{lstlisting} & \begin{lstlisting}
+{  T** t = GC( a );
+   [...]
+   GC_free( t );
+   if (GC_count(t) == 1)
+     for (i = 0; i < ...; i++)
+       GC_free( t[i] );
+   GC_free( t );   }
+\end{lstlisting}
+When an array of arrays is freed, we need to make sure we decrement everything it was pointing to. \\ \hline
 \end{tabular}
+\caption{GC instructions}
+\label{fig:GCinstr}
+\end{figure}
 
-\begin{figure}
+The idea is to keep track of the number of pointers pointing to an array or a struct. We can detect, by checking the pointer counter, if an array is referenced in several portions of the code (nested reference in other data structure, local variable in calling function, ...) and then perform all updates non destructively to avoid inconsistency.\\
+
+We implement a very simple "Reference Counting Garbage Collector" as described in \cite{jonesgarbage} and integrate it to the C code generated according to the rules described Figure~\ref{fig:GCinstr}. \\
+
+The GC consists in a hashtable of pointer counters that we maintain during the execution of the code. Each pointer to data allocated on the heap is a key in the hashtable to which we associate an int counter as value. We then make sure that all memory allocations in the code make a call to the GC to "declare" the new memory. The GC we implemented is described Figure~\ref{fig:GC.h}.
+
+
+
+\begin{figure}[!ht]
 \begin{lstlisting}
 struct entry_s {
    void*  pointer;
@@ -533,9 +573,10 @@ f( B );           // f is given a variable with a reference counter of 1.
 \item Every update require now tests and calls to hashtable functions. This is a small cost compared to the copying it may allow to avoid but no so small compared to a single in place update that could be decided by a code analysis.
 \item Besides, the code gets much bigger since every update or copy requires the code to both destructive and non destructive operation and the if statement to decide which one to use. For instance, passing arguments to a function adds quite some code
 \begin{center}
-\begin{tabular}{|c||c|}
+\begin{tabular}{|c||l|}
 \hline
-GC use & Static analysis optimization \\ \hline
+GC use & Static analysis optimization  \\ \hline
+\begin{minipage}{10cm}
 \begin{lstlisting}
 int* f(int* arg) {
    int* result;
@@ -552,6 +593,7 @@ int* f(int* arg) {
    return result;
 }
 \end{lstlisting}
+\end{minipage}
 &
 \begin{lstlisting}
 int* f(int* arg) {
@@ -616,7 +658,7 @@ We have the following issues:
 
 \subsection{Flow analysis on the PVS code}
 
-An other optimization would be to perform an analysis on the PVS expressions. Shankar \cite{shankar02} and later Pavol \cite{pavol} suggest several analysis based on flow analysis that allow to replace PVS non destructive updates with destructive updates.\\
+An other optimization would be to perform an analysis on the PVS expressions. Shankar \cite{shankar02} and later Cerny and Shankar's \cite{pavol} suggest several analysis based on flow analysis that allow to replace PVS non destructive updates with destructive updates.\\
 
 These analysis require the definition of two versions of each function. A safe version that can always be called and never  performs any destructive update and an other "destructive" version that can only be called under certain conditions on the arguments. However thanks to these conditions, the body of that destructive version is allowed to perform safe destructive update and may call destructive versions of functions.\\
 
@@ -628,7 +670,7 @@ We didn't implement these analysis into the translator but they inspired the sta
 
 One of the solutions we decided to implement to solve the update problem  consists in an analysis on the intermediate language before the optimization and generation of the actual output C code.\\
 
-We also use two different versions of a PVS function called $f$ and $f^d$. Our analysis differs from Shankar and Pavol's preivous work in (at least) the following:
+We also use two different versions of a PVS function called $f$ and $f^d$. Our analysis differs from Shankar and Shankar and Cerny's previous work in (at least) the following:
 \begin{itemize}
 \item The non destructive version of a function is also optimized and might have some destructive updates or function calls.
 \item The destructive function does not have all its function call destructive.
@@ -1288,7 +1330,14 @@ struct r_list_int {
 \end{lstlisting}
 
 
-Since the translator's correctness itself has not be proven, there is no formal guarantee that the semantic will be preserved during the translation. In particular, even if some properties were proven on a certain PVS model, its translation to C could not verify these properties. This tool certainly does not allow the generation of high insurance code. The only way to do that would be to formally prove the correctness of the translator. The CompCert C compiler (\href{http://compcert.inria.fr}{http://compcert.inria.fr/compcert-C.html}), is an example of such a proven translator.
+Since the translator's correctness itself has not be proven, there is no formal guarantee that the semantic will be preserved during the translation. In particular, even if some properties were proven on a certain PVS model, its translation to C could not verify these properties. This tool certainly does not allow the generation of high insurance code. The only way to do that would be to formally prove the correctness of the translator. The CompCert C compiler (\href{http://compcert.inria.fr}{http://compcert.inria.fr/compcert-C.html}), is an example of such a proven translator. \\
+
+
+We can only translate a subset of PVS syntax.
+What's missing ? \\
+
+We can only translate a subset of PVS type system.
+What's missing ?
 
 
 \subsection{My stay at SRI}
