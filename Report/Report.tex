@@ -21,11 +21,11 @@
 \usepackage{pdfpages}
 
 \usepackage[%
-backend=biber,
-style=alphabetic,
-backref=true,
-backrefstyle=all+,
-hyperref=true,
+  backend=biber,
+  style=alphabetic,
+  backref=true,
+  backrefstyle=all+,
+  hyperref=true,
 ]{biblatex}
 
 \bibliography{allbib}
@@ -111,8 +111,6 @@ A special thank Lori Truitt for all the help she provided with administrative pa
 \section{Introduction}
 
 
-
-
 In this section, we quickly describe PVS and the previous effort made in its translation. Then, we give in Section~\ref{sec:UpdateExpr} an overview of the different steps in the process of translating a functional, higher order, specification language into an imperative, low-level language such as C. We provides a few detail on the implementation of our translator and give examples of its execution. In Section~\ref{sec:UpdateExpr} we describe the issue of the translation of updates expressions and describe a few solutions, two of them being implemented in the translator. Finally we focus on the implemented static analysis in Section~\ref{sec:StaticAnal} and try to prove its correctness.
 
 
@@ -125,11 +123,11 @@ The specification language of PVS is built on higher-order logic: functions can 
 
 PVS typechecking is not decidable and thus whenever the typechecker encounters a non trivial constraint for an expression to be type-correct, it relies on \emph{Type-Correctness Condition} (TCC), a formula that has to be proved by the user for the expression to actually be typed correct. For instance, trying to divide by some variable $x$ will automatically generate a TCC for the user to prove that that $x$, in the context of the call, can not be zero. \\
 
-A PVS file consists in one or several theories, that are somewhat similar to modules in OCaml and Python, or to packages in Java. The body of a theory consists in a serie of declarations of the form \cl{name:sort = def} where \cl{sort} is the “sort” of the declaration and \cl{def} is a PVS expression which can be a term expression (syntax described in Figure~\ref{fig:PVSsyntax}) or a type expression (syntax described in Figure~\ref{fig:PVS-types}). When the \cl{= def} part is omitted, the declaration is uninterpreted and the name now refers to some abstract value of \cl{sort}.\\
+A PVS file consists in one or several theories, that are somewhat similar to modules in OCaml and Python, or to packages in Java. The body of a theory consists in a serie of declarations of the form \cl{name:sort = def} where \cl{sort} is the “sort” of the declaration and \cl{def} is a PVS expression which can be a term expression (syntax described in Figure~\ref{fig:PVSsyntax}) or a type expression (syntax described in Figure~\ref{fig:PVS-types}). When the \cl{= def} part is omitted, the declaration is uninterpreted and the name now refers to some abstract value of \cl{sort}. See Figure~\ref{fig:PVSbenchmark} for an example of a theory. \\
 
 The sort of the declaration can be:
 \begin{itemize}
-\item A PVS type expression, in which case the declaration defines a new value of that type. A TCC is generated to prove that the definition is of the given type unless no definition is given. In that case, a TCC might be generated to prove the type is non empty.
+\item A PVS type expression (lines 15-17 in the PVS example), in which case the declaration defines a new value of that type. A TCC is generated to prove that the definition is of the given type unless no definition is given. In that case, a TCC might be generated to prove the type is non empty.
 \item \cl{TYPE} or \cl{NONEMPTY\_TYPE} (or \cl{TYPE+}), in which case the declaration defines a new type. A TCC might be generated to guarantee the non emptiness.
 \item A theorem-like keyword such as \cl{THEOREM} or \cl{LEMMA}, in which case the declaration defines a new theorem. A proof obligation is generated, and the theorem can be used in proofs in the remaining declarations
 in the file.
@@ -142,7 +140,9 @@ In addition to that, the PVS \cl{DATATYPE} mechanism allows to define recursive 
 
 \subsection{Why translate PVS ?}
 
-Specification languages are made to be expressive rather than executable allowing the conceptualization and modelization of complex systems. However such systems are themselves made to be later executed and integrated into physical systems. For that reason, a model of a system needs to be implemented into a programming language. This can be done manually with the risk of making human mistakes in the translation process or this can be left to a automated translator which would preserve the high insurance properties that were proven on the model. Besides, the ability to run a model during its development phase allows debugging and testing.
+Specification languages such as PVS are made to be expressive rather than executable allowing the conceptualization, design, modelization and analysis of complex systems described at a higher level than a programming language. \\
+
+However such systems are themselves made to be later executed and integrated into physical systems. For that reason, a model of a system needs to be turned into executable code implemented into a programming language. This can be done manually with the risk of making human mistakes in the translation process or this can be left to a automated translator which would preserve the high insurance properties that were proven on the model. Besides, the ability to run a model during its development phase allows debugging and testing.
 
 
 
@@ -170,8 +170,8 @@ Translating PVS was already done for different purposes.
 A translator is a program taking the source code of program $P$ written in the programming language $\mathcal{L}_A$ as an entry and generating the code of an other program $Q$ in the target language $\mathcal{L}_B$ as an output. In our case, $\mathcal{L}_A$ is a subset of PVS and $\mathcal{L}_B$ is the language C. It is expected from a translator to:
 \begin{itemize}
 \item Never fail if the entry is the code of a valid program in the input language, $\mathcal{L}_A$. However the translator might declare being only able to translate a fragment of the language and restrict its input language. In our case, we expect input programs to be written using the syntax in Figure~\ref{fig:PVSsyntax}, to be parsed and typechecked using PVS without error and finally, we expect that TCCs generated by PVS can be proven.
-\item Generate a valid program in the target language $\mathcal{L}_B$.
-\item For all entry $x$, $P(x)$ and $Q(x)$ return the same result (correctness).
+\item Generate a valid program in the target language $\mathcal{L}_B$. In our case, some of the key requirements are that the generated code can be compiled using the GNU Compiler Collection (\href{https://gcc.gnu.org/}{gcc.gnu.org/}) and never raises a segmentation fault error during its execution.
+\item For all entry $x$, $P(x)$ and $Q(x)$ return the same result (correctness). More precisely, since both programs take different data structure as entries, if $x_A$ and $x_B$ have the same mathematical evaluation respectively in the languages $\mathcal{L}_A$ and $\mathcal{L}_B$ then $P(x)$ and $Q(x)$ also have the same mathematical evaluation.
 \end{itemize}
 
 
@@ -214,14 +214,14 @@ The C language \cite{huss2004c} has a few base types to represent bounded intege
 To represent big integers or rationals, we use the GMP library which introduces a few other types.
 
 \begin{lstlisting}[caption=C types]
-// integer and floating point types
-[unsigned] char, int, long, double
-type*         //arrays
-char*         // strings
-struct types  // structures with fields
-enum types    // enumerated types
-mpz_t, mpq_t  // GMP library
-short int, float, union, size_t // etc...
+    // integer and floating point types
+    [unsigned] char, int, long, double
+    type*         //arrays
+    char*         // strings
+    struct types  // structures with fields
+    enum types    // enumerated types
+    mpz_t, mpq_t  // GMP library
+    short int, float, union, size_t // etc...
 \end{lstlisting}
 
 
@@ -278,17 +278,79 @@ struct CT {
 \subsection{Translating PVS syntax}
 \label{subsec:pvssyntax}
 
+Whereas PVS syntax relies on expressions, the C language relies on memory allocation and on the use of variables. Even though some simple PVS expression (for instance \cl{2*(x+y)} for \cl{x} and \cl{y} typed as small integers) can be translated to C expressions (\cl{2*(x+y)} with \cl{x} and \cl{y} typed as \cl{int}), most of the time to represent a PVS expression in the C language, we need to build it and store it into a variable. For instance \cl{X[0] + 1} should be translated to
+\begin{lstlisting}
+mpz_t aux = X[0];
+mpz_t one;
+mpz_init_set_ui(one, (unsigned long int) 1);
+mpz_t res;
+mpz_init( res );
+mpz_add(res, aux, one);
+mpz_clear(aux);
+mpz_clear(one);
+[...]  // Use res here, its value represent X[0] + 1
+mpz_clear(res);
+\end{lstlisting}
+So to obtain a C expression (variable) representing a PVS expression, we usually need a few instructions to initialize it, the variable (or C expression) itself and a few instructions to destroy the variables created. \\
 
-Typically, an expression $e$ is translated into a tuple of four elements $(t,e,i,d)$, where $t$ represents a C type used to describe the expression, $e$ is a simple expression, $i$ is a list of instructions to be executed prior to using $e$, the initialization of the expression. Finally $d$ is a list of instructions to be executed when $n$ isn't needed anymore, the destruction of $e$.
-
-
-
+Typically, an expression $e$ is going to be translated into a tuple of four elements $(T,E,I,D)$, where $T$ represents a C type used to describe the expression, $E$ is a simple expression (a variable, a function call, an access to an array, etc), $I$ is a list of instructions to be executed prior to using $E$, the initialization of the expression. Finally $D$ is a list of instructions to be executed when $E$ isn't needed anymore, the destruction of $E$.
 
 
 \subsubsection{A few translation rules}
 
 We first define a function $T$ to translate an expression $e$.
 $$ T(e) = ( \ T^t(e) \ , \ T^n(e) \ , \ T^i(e) \ , \ T^d(e) \ ) $$
+where $T^n(e)$ might be a hole: ?. In that case, the instructions $T^i(e)$ and $T^d(e)$ might contain occurrences of the hole.
+From that function, we define a similar function
+$$ R(e, t) = ( \ t \ , \ T^n(e) \ , \ T^i(e) \ , \ T^d(e) \ ) $$
+which decides the type of the C expression returned. This function uses the result of $T$ and may perform conversions to make sure its result has the expected type. Also the result of this function is never a hole. Finally the function
+$$ S(e, t, n) = ( \ t \ , \ n \ , \ T^i(e) \ , \ T^d(e) \ ) $$
+imposes the C expression to be a variable with the given name and type.
+
+$$ E := \cl{lambda(x:below(10)):x WITH (1) := 5} $$
+
+\begin{lstlisting}
+  mpz_t* A = malloc( 10 * sizeof(mpz_t) );
+  for (i=0; i<10; i++)  mpz_init(A[i]);
+  int N = 1;
+  mpz_t R;
+  mpz_init(R);
+  mpz_set_ui(R, 5);
+  mpz_set(A[n], R);
+  mpz_clear(R);
+  [...] // use A here
+  for(i=0; i<10; i++)  mpz_clear(A[i]);
+  free(A);
+\end{lstlisting}
+
+\begin{tabular}{|l|p{5.2cm}|p{4cm}|p{1cm}|p{2cm}|}
+\hline
+To compute & Needed & I & E & D  \\ \hline
+$ R(E, \cl{mpz\_t*})$ &
+$S_1 := S(\cl{$\lambda$x.x}, \cl{mpz\_t*}, \cl{A} )$ \newline
+$S_2 := S(\cl{1}, \cl{int}, \cl{N})$ \newline
+$S_3 := S(\cl{5}, \cl{mpz\_t}, \cl{R})$ &
+$S_1^i$ $S_2^i$ $S_3^i$ \newline
+\cl{mpz\_set(A[N],R);} \newline
+$S_1^d$ $S_2^d$ $S_3^d$
+& \cl{A} & \cl{free(A);} \\ \hline
+
+$S(\cl{1}, \cl{int}, \cl{N})$ &
+$R_1 := R(\cl{1}, \cl{int})$ &
+$R_1^i$ \ \ \cl{N = $R_1^e$;} \ \ $R_1^d$ &
+\cl{N} & \\ \hline
+
+$R(\cl{1}, \cl{int})$ &
+$T_1 := T(\cl{1})$ &
+$T_1^i$ & $T_1^e$ & $T_1^d$ \\ \hline
+
+$T(\cl{1})$ & & & \cl{1} & \\ \hline
+
+
+\end{tabular}
+
+
+
 
 \begin{figure}[!ht]
 \begin{eqnarray*}
@@ -307,11 +369,10 @@ T(\cl{lambda(x:below(10)):x}) &= (& \cl{int*}, \ ? \ , \\
 \caption{Translation examples: number expressions}
 \end{figure}
 
-It may occur that $T^n(e) = ?$. In that case, the symbol $?$ appearing in $T^i(e)$ and $T^d(e)$ needs to be replaced by a proper variable name.\\
 
 We then define two other operators:
 \begin{itemize}
-\item $R$ wich take an expression and a type and may add an extra conversion in the instructions to make sure its result has the expected type. Also the result of this function has a proper name.
+\item $R$ which take an expression and a type and may add an extra conversion in the instructions to make sure its result has the expected type. Also the result of this function has a proper name.
 \item $S$ which take an expression, a type and a name. It makes sure that the given variable (type + name) is set to a value representing the expression.
 \end{itemize}
 
@@ -1522,7 +1583,8 @@ Intermediate language code\\
 (before analysis - with types)
 \end{center} &
 \begin{center}
-C code generated
+C code generated\\
+(after analysis)
 \end{center} \\ \hline
 
 \begin{lstlisting}
@@ -1570,14 +1632,13 @@ int* f(int* A) {
 \begin{lstlisting}
 f(A:Arr):Arr =
   let B = A in
-    A WITH [(0) := B(0) ]
+    A WITH [(0) := B(0)]
 \end{lstlisting} &
-\cl{f: ( int* A ) -> int} \newline
+\cl{fd: ( int* A ) -> int} \newline
 \cl{set(B, A);} \newline
 \cl{set(L, 0);} \newline
 \cl{set(R, B(0) );} \newline
-\cl{set(result, A[(L) := R] );} \newline
-\cl{result} &
+\cl{A[(L) := R]} &
 \begin{lstlisting}
 int* f_d(int* A) {
   int* B = GC_malloc(...);
@@ -1614,10 +1675,19 @@ C code generated
 f(A:Arr):Arr =
   A WITH [(0) := 0]
 \end{lstlisting} &
+\ \newline
 \cl{f: ( int* A ) -> int*} \newline
 \cl{set(L, 0);} \newline
 \cl{set(R, 0);} \newline
-\cl{A[(L) := R]} &
+\cl{A[(L) := R]} \newline
+\ \newline
+(after analysis) \newline
+\ \newline
+\cl{fd: ( int* A ) -> int*} \newline
+\cl{set(L, 0);} \newline
+\cl{set(R, 0);} \newline
+\cl{A[(L) <- R]}
+ &
 \begin{lstlisting}
 int* f(int* A) {
   int L = 0, R = 0;
@@ -1646,13 +1716,25 @@ f(A:Arr):Arr =
  let B = A WITH[(0):=0]
  in A WITH[(0) := B(0)]
 \end{lstlisting} &
-\cl{f: ( (A, int*) ) -> int*} \newline
+\ \newline
+\cl{f: ( int* A ) -> int*} \newline
 \cl{set(L1, 0);} \newline
 \cl{set(R1, 0);} \newline
 \cl{set(B, A[(L1) := R1] );} \newline
 \cl{set(L2, 0);} \newline
 \cl{set(R2, B(0));} \newline
-\cl{A[(L2) := R2] );} &
+\cl{A[(L2) := R2] );} \newline
+\ \newline
+(after analysis) \newline
+\ \newline
+\cl{fd: ( int* A ) -> int*} \newline
+\cl{set(L1, 0);} \newline
+\cl{set(R1, 0);} \newline
+\cl{set(B, A[(L1) := R1] );} \newline
+\cl{set(L2, 0);} \newline
+\cl{set(R2, B(0));} \newline
+\cl{A[(L2) <- R2] );}
+&
 \begin{lstlisting}
 int* f(int* A) {
   int R1 = 0, L1 = 0;
@@ -1690,7 +1772,7 @@ int* f_d(int* A) {
 
 \newpage
 \begin{figure}
-\begin{lstlisting}[language=TeX]
+\begin{lstlisting}[numbers=left,language=TeX]
 benchmark : THEORY
 BEGIN
 
@@ -1703,9 +1785,11 @@ BEGIN
 % g      = 12345
 % X_0    = 9876
 
-  Val : TYPE = subrange(0, 59557)
-  Ind  : TYPE = below(20000)
-  Arr  : TYPE = [ Ind -> Val ]
+  SIZE: int = 1000
+  
+  Val  : TYPE+ = subrange(0, 59557)
+  Ind  : TYPE+ = below(SIZE)
+  Arr  : TYPE+ = [ Ind -> Val ]
   
   A : VAR Arr
   i : VAR Ind
@@ -1713,11 +1797,11 @@ BEGIN
   
   init(A, i, v): RECURSIVE Arr =
     let B = A with [(i) := v] in
-      if i >= 999 then B	
+      if i >= SIZE-1 then B	
       else init(B, i+1, rem(59557)(12345 * v) ) endif
-  MEASURE 999 - i
+  MEASURE SIZE - 1 - i
   
-  J :Arr = lambda(k:Ind): 999 - k
+  J :Arr = lambda(k:Ind): SIZE - 1 - k
   Z :Arr = lambda(x:Ind) : 0
   T :Arr = init(Z, 0, 9876)
   
@@ -1729,12 +1813,12 @@ BEGIN
     ENDIF
     MEASURE i
 
-  insort_rec(A, (n:upto(1000)) ): RECURSIVE Arr =
-    IF n < 1000 THEN
+  insort_rec(A, (n:upto(SIZE)) ): RECURSIVE Arr =
+    IF n < SIZE THEN
       let An = A(n) in
         insort_rec( insert(A, An, n), n + 1 )
     ELSE A ENDIF
-    MEASURE 1000 - n
+    MEASURE SIZE - n
 
   insort(A): Arr = insort_rec(A, 0)
   
@@ -1743,28 +1827,29 @@ BEGIN
   
 END benchmark
 \end{lstlisting}
-\caption{Full PVS example - C translation}
+\caption{Full PVS example - PVS theory}
+\label{fig:PVSbenchmark}
 \end{figure}
 
 
 \begin{figure}
 \begin{lstlisting}
+#define SIZE 1000;
+#define SIZE_1 SIZE-1;
+
 unsigned long int* init(unsigned long int* A, int i, unsigned long int v) {
   A[i] = v;
-  if ((i >= SIZE_1)) {
+  if ((i >= SIZE_1))
     return A;
-  } else {
+  else
     return init( A , (i + 1) , ((12345 * v) % 59557) );
-  }
 }
 
 unsigned long int J(int k) {
-  return (unsigned long int) (SIZE_1 - k);
-}
+  return (unsigned long int) (SIZE_1 - k);  }
 
 unsigned long int Z(int x) {
-  return (unsigned long int) 0;
-}
+  return (unsigned long int) 0;  }
 
 unsigned long int* T() {
   unsigned long int* aux = GC_malloc(SIZE, sizeof(unsigned long int) );
@@ -1789,8 +1874,7 @@ unsigned long int* insort_rec(unsigned long int* A, int n) {
   if ((n < SIZE)) {
     unsigned long int An = A[n];
     return insort_rec( insert( A , An , n ) , (n + 1) );
-  else
-    return A;
+  } else  return A;
 }
 
 unsigned long int* insort(unsigned long int* A) { return insort_rec( A , 0 ); }
@@ -1801,13 +1885,13 @@ unsigned long int jsort() {
   unsigned long int* aux;
   aux = GC_malloc(SIZE, sizeof(unsigned long int) );
   int i;
-  for(i = 0; i < SIZE; i++) {
+  for(i = 0; i < SIZE; i++)
     aux[i] = J( i );
-  }
   return insort( aux )[0];
 }
 \end{lstlisting}
 \caption{Full PVS example - C translation}
+\label{fig:Cbenchmark}
 \end{figure}
 
 
