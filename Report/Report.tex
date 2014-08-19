@@ -278,7 +278,7 @@ struct CT {
 \subsection{Translating PVS syntax}
 \label{subsec:pvssyntax}
 
-Whereas PVS syntax relies on expressions, the C language relies on memory allocation and on the use of variables. Even though some simple PVS expression (for instance \cl{2*(x+y)} for \cl{x} and \cl{y} typed as small integers) can be translated to C expressions (\cl{2*(x+y)} with \cl{x} and \cl{y} typed as \cl{int}), most of the time to represent a PVS expression in the C language, we need to build it and store it into a variable. For instance \cl{X[0] + 1} should be translated to
+Whereas PVS syntax relies on expressions built from other expressions in a tree-like structure, the C language relies on a instructions, memory allocation and the use of variables. Even though some simple PVS expression (for instance \cl{2*(x+y)} for \cl{x} and \cl{y} typed as small integers) can be directly translated to C expressions (\cl{2*(x+y)} with \cl{x} and \cl{y} typed as \cl{int}), most of the time to represent a PVS expression in the C language, we need to build it and store it into a variable. For instance \cl{X[0] + 1} should be translated to
 \begin{lstlisting}
 mpz_t aux = X[0];
 mpz_t one;
@@ -296,7 +296,7 @@ So to obtain a C expression (variable) representing a PVS expression, we usually
 Typically, an expression $e$ is going to be translated into a tuple of four elements $(T,E,I,D)$, where $T$ represents a C type used to describe the expression, $E$ is a simple expression (a variable, a function call, an access to an array, etc), $I$ is a list of instructions to be executed prior to using $E$, the initialization of the expression. Finally $D$ is a list of instructions to be executed when $E$ isn't needed anymore, the destruction of $E$.
 
 
-\subsubsection{A few translation rules}
+\subsubsection*{Main functions}
 
 We first define a function $T$ to translate an expression $e$.
 $$ T(e) = ( \ T^t(e) \ , \ T^n(e) \ , \ T^i(e) \ , \ T^d(e) \ ) $$
@@ -307,33 +307,49 @@ which decides the type of the C expression returned. This function uses the resu
 $$ S(e, t, n) = ( \ t \ , \ n \ , \ T^i(e) \ , \ T^d(e) \ ) $$
 imposes the C expression to be a variable with the given name and type.
 
+\subsubsection*{Example}
+
+As an example, we describe here what would be the trace of the execution of the translator on the following PVS expression.
 $$ E := \cl{lambda(x:below(10)):x WITH (1) := 5} $$
 
+We suppose that the static analysis decides to make the update destructively. The output would be, before the optimization:
+
 \begin{lstlisting}
-  mpz_t* A = malloc( 10 * sizeof(mpz_t) );
-  for (i=0; i<10; i++)  mpz_init(A[i]);
-  int N = 1;
-  mpz_t R;
-  mpz_init(R);
-  mpz_set_ui(R, 5);
-  mpz_set(A[n], R);
-  mpz_clear(R);
-  [...] // use A here
-  for(i=0; i<10; i++)  mpz_clear(A[i]);
-  free(A);
+   mpz_t* A;
+   A = malloc( 10 * sizeof(mpz_t) );
+   for (i=0; i<10; i++) {  mpz_init(A[i]);  }
+   for (x=0; x<10; x++) {
+      mpz_init(A[i]);
+      mpz_set_ui( A[x], x );
+   }
+   int N;
+   N = 1;
+   mpz_t R;
+   mpz_init(R);
+   mpz_set_ui(R, 5);
+   mpz_set(A[n], R);
+   mpz_clear(R);
+    [...] // use A here
+   for(x=0; x<10; x++)  mpz_clear(A[i]);
+   free(A);
 \end{lstlisting}
 
-\begin{tabular}{|l|p{5.2cm}|p{4cm}|p{1cm}|p{2cm}|}
+Figure~\ref{fig:exTrans} is the description of the trace of the translator.
+
+\begin{figure}
+\begin{tabular}{|p{3.2cm}|p{4.5cm}|p{3.9cm}|p{1.2cm}|p{2.6cm}|}
 \hline
-To compute & Needed & I & E & D  \\ \hline
+To compute & Needed & I & [T] E & D  \\ \hline
 $ R(E, \cl{mpz\_t*})$ &
-$S_1 := S(\cl{$\lambda$x.x}, \cl{mpz\_t*}, \cl{A} )$ \newline
+$S_1 := S(\cl{$\lambda$x.x}, \cl{mpz\_t*}, \cl{A})$ \newline
 $S_2 := S(\cl{1}, \cl{int}, \cl{N})$ \newline
 $S_3 := S(\cl{5}, \cl{mpz\_t}, \cl{R})$ &
-$S_1^i$ $S_2^i$ $S_3^i$ \newline
+\cl{mpz\_t*A;} \ $S_1^i$ \newline
+\cl{int N;} \ $S_2^i$ \newline
+\cl{mpz\_t R;} \ $S_3^i$ \newline
 \cl{mpz\_set(A[N],R);} \newline
 $S_1^d$ $S_2^d$ $S_3^d$
-& \cl{A} & \cl{free(A);} \\ \hline
+& \cl{A} & $S_1^d$ \\ \hline
 
 $S(\cl{1}, \cl{int}, \cl{N})$ &
 $R_1 := R(\cl{1}, \cl{int})$ &
@@ -344,54 +360,48 @@ $R(\cl{1}, \cl{int})$ &
 $T_1 := T(\cl{1})$ &
 $T_1^i$ & $T_1^e$ & $T_1^d$ \\ \hline
 
-$T(\cl{1})$ & & & \cl{1} & \\ \hline
+$T(\cl{1})$ & & & \cl{int 1} & \\ \hline
 
+$S(\cl{5}, \cl{mpz\_t}, \cl{R})$ &
+$T_1 := T(\cl{5})$ &
+$T_1^i$ \newline
+\cl{mpz\_init(R);} \newline
+\cl{mpz\_set\_ui(R, $T_1^e$);} \newline
+$T_1^d$
+& \cl{R} &
+\cl{mpz\_clear(R);} \\ \hline
+
+$T(\cl{5})$ & & & \cl{int 5} & \\ \hline
+
+$S(\lambda\cl{x}.\cl{x},\cl{mpz\_t*},\cl{A})$ &
+$S_x := S(\cl{x}, \cl{mpz\_t}, \cl{A[x]})$ &
+\cl{A = malloc(10$...$);} \newline
+\cl{for(x=0$...$10)} \newline
+\phantom{tes } $S_x^i$
+& \cl{R} &
+\cl{for(x=0$...$10)} \newline
+\phantom{tes } $S_x^d$ \newline
+\cl{free(A);} \\ \hline
+
+$S(\cl{x},\cl{mpz\_t},\cl{A[x]})$ & $T_1 := T(x)$ & 
+\cl{mpz\_init(A[x]);} \newline
+$T_1^i$ \newline
+\cl{mpz\_set\_ui(A[x],} \newline
+\phantom{mmmmmmmmi} \cl{$T_1^e$); }
+& \cl{A[x]} &
+$T_1^d$ \newline
+\cl{mpz\_clear(} \newline 
+\phantom{mmmi} \cl{A[x]);}
+ \\ \hline
+
+$T(x)$ & & & \cl{int x} & \\ \hline
 
 \end{tabular}
-
-
-
-
-\begin{figure}[!ht]
-\begin{eqnarray*}
-T(\cl{2}) &= (& \cl{int}, "2", [], []) \\
-T(\cl{4294967296}) &= (& \cl{mpz\_t}, \ ? \ , \\
-&& [ \cl{mpz\_init(?);} \ | \\
-&& \ \cl{mpz\_set\_str(?, "4294967296");} ],\\
-&& [ \cl{mpz\_clear(?);} ]) \\
-T(\cl{lambda(x:below(10)):x}) &= (& \cl{int*}, \ ? \ , \\
-&& [ \cl{? = malloc(10 * sizeof(int));} \ | \\
-&& \ \cl{int i;} | \\
-&& \ \cl{for(i = 0; i < 10; i++) }\\
-&& \ \ \ \cl{?[i] = i;}  ]\\
-&& [ \cl{free(?);} ])
-\end{eqnarray*}
-\caption{Translation examples: number expressions}
+\caption{Example of the translator's execution trace}
+\label{fig:exTrans}
 \end{figure}
 
 
-We then define two other operators:
-\begin{itemize}
-\item $R$ which take an expression and a type and may add an extra conversion in the instructions to make sure its result has the expected type. Also the result of this function has a proper name.
-\item $S$ which take an expression, a type and a name. It makes sure that the given variable (type + name) is set to a value representing the expression.
-\end{itemize}
-
-
-\begin{lstlisting}
-number-expr "2"
-(C-int, "2", [], [])
-
-number-expr "12315468453213"
-(C-mpz, nil,
-        [mpz_t ~a; | mpz_t_init("12315468453213"); ],
-        [mpz_clear ~a;])
-
-application "f(e1, e2)"
-(C-mpz, nil,
-       [ instr(e1) | instr(e2)
-                   | mpz(~a); | f(~a, e1, e2) ]
-       [mpz_clear(~a);]
-\end{lstlisting}
 
 
 
@@ -673,23 +683,11 @@ int* f(int* arg) {
 \subsection{Using a more adapted data structure}
 
 The Lisp code generated by PVS and used for example by the ground evaluator to compute PVS expressions represents PVS arrays with a more complex data structure than a simple array. It basically consists in an array and a replacement list. Every time an update on \cl{(A, l)} is performed, the result is a pointer to the same array \cl{A} and a replacement list with an extra term.
-\begin{eqnarray}
+\begin{eqnarray*}
 \cl{T} &\Longrightarrow& \cl{(A, l)} \\
 \cl{T[(0) := 0]}&\Longrightarrow& \cl{(A, (0:=0) :: l)}
-\end{eqnarray}
-When the replacement list becomes too long (longer than $\tau(n)$), we create a new array \cl{A'} by applying the replacement terms to a copy of \cl{A} and we return \cl{(A', nil)}. The hope is that by the time we need to perform this copy, nothing else points to the old array so that it is garbage collected immediately. The trade off can be summarized with:
-
-\begin{center}
-\begin{tabular}{|l|l|p{10cm}|}
-\hline
- & Copied array & New data structure \\ \hline
-Update time & $O(n)$ & $O(n)$ (if copying is needed) but most of the time $O(1)$.  \\ \hline
-Update space & $O(n)$ & $O(n)$ (if copying is needed and the old array is not garbage collected) but most of the time $O(1)$. \\ \hline
-Access time & $O(1)$ & $O(\tau(n))$ since we need to read the replacement list. \\ \hline
-\end{tabular}
-\end{center}
-
-We could represent C data structure with a similar C structure. For example :
+\end{eqnarray*}
+We could implement this data structure with a similar C structure. For example :
 \begin{center}
 \begin{tabular}{ccc}
 \begin{lstlisting}
@@ -706,6 +704,27 @@ struct r_int_list {
    r_list* tl;
 };
 \end{lstlisting}
+\end{tabular}
+\end{center}
+When the replacement list becomes too long (longer than $\tau(n)$), we create a new array \cl{A'} by applying the replacement terms to a copy of \cl{A} and we return \cl{(A', nil)}. The hope is that by the time we need to perform this copy, nothing else points to the old array so that it is garbage collected immediately. The trade off can be summarized with the worst case complexities:
+
+\begin{center}
+\begin{tabular}{|l|l|p{10cm}|}
+\hline
+ & Copied array & New data structure \\ \hline
+Update time & $O(n)$ & $O(n)$ (if copying is needed) but most of the time $O(1)$.  \\ \hline
+Update space & $O(n)$ & $O(n)$ (if copying is needed and the old array is not garbage collected) but most of the time $O(1)$. \\ \hline
+Access time & $O(1)$ & $O(\tau(n))$ since we need to read the replacement list. \\ \hline
+\end{tabular}
+\end{center}
+Best case scenario, all arrays are always immediately garbage collected after an update and we get these mean complexities
+\begin{center}
+\begin{tabular}{|l|l|p{4.8cm}|p{4.8cm}|}
+\hline
+ & Copied array & New data structure & Destructive update \\ \hline
+Update time & $O(n)$ & $O(n / \tau(n) )$ & $O(1)$  \\ \hline
+Update space & $O(n)$ & $O(1)$ & $0$\\ \hline
+Access time & $O(1)$ & $O(\tau(n))$ & $O(1)$ \\ \hline
 \end{tabular}
 \end{center}
 
@@ -943,6 +962,12 @@ We assume a few properties on valid programs:
 \item The only free variables in the body of a function declaration are the arguments of that function.
 \end{enumerate}
 
+Besides we assume these properties on programs generated by the translator:
+\begin{enumerate}
+\item No destructive update is used to represent PVS updates (before the analysis).
+\item 
+\end{enumerate}
+
 We first define the semantics of the language using a small-steps operational semantics. Then we define a few operators on the language and exhibit some properties.
 Finally we describe an algorithm to replace non destructive updates with destructive updates under certain conditions and prove that there is a bisimulation between programs before and after applying this algorithm. This proves that the execution of the program is not disturbed by the replacements and thus the correctness of the algorithm.
 
@@ -960,23 +985,34 @@ An \emph{evaluation context} (sometimes simply called \emph{context}) $E$ is an 
 \item $\cl{pop(} \econt{} \cl{)}$
 \item $E_1\econt{E_2}$ \ \ , where $E_1$ and $E_2$ are evaluation contexts.
 \end{enumerate}
-
 A \emph{redex} is an expression of the following form
+
+\begin{tabular}{p{4.8cm}p{6.8cm}p{4cm}}
 \begin{enumerate}
 \itemsep-0.2em
 \item $x$
 \item $X[y]$
 \item $\cl{if (} x \cl{) } a \cl{ else } b $
 \item $\cl{array(} x \cl{)}$
+\end{enumerate} &
+\begin{enumerate}
+\setcounter{enumi}{4}
+\itemsep-0.2em
 \item $X\cl{[(} x \cl{) := } y \cl{]}$
 \item $X\cl{[(} x \cl{) <- } y \cl{]}$
 \item $\cl{lambda(}  f \cl{, } m \cl{, } x_1 \cl{, } ... \cl{, } x_m \cl{)}$
 \item $y\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
+\end{enumerate} &
+\begin{enumerate}
+\setcounter{enumi}{8}
+\itemsep-0.2em
 \item $f\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
 \item $p\cl{(} x_1 \cl{, } ... \cl{, } x_n \cl{)}$
 \item $\cl{set(} x \cl{, } v \cl{); } e$
 \item $\cl{pop( } v \cl{)}$
 \end{enumerate}
+\end{tabular}
+
 
 We define a \emph{local environment}, $s_i$, as a function ranging over the set $N$ of all variable names with values in $V$.\\
 The \emph{stack state}, $s$, is a series of local environments: $s = (s_0, ... , s_n)$.\\
@@ -1316,7 +1352,6 @@ If $<e_1, (s_1, h_1)> \ \longrightarrow \ <e_2, (s_2, h_2)>$ then $<e_1, (s_1, h
 \begin{proof}
 It can easily be verified for every redex. When $a = U\ucont{b}$, we have $Lc(a) = Lc(U) \cup Lc(b)$ and the inductive step is proved .
 \end{proof}
-
 
 
 
