@@ -135,8 +135,9 @@ in the file.
 This can obviously introduce inconsistencies, and should be used with much care. It is often used in conjunction with uninterpreted declarations to define types or terms axiomatically instead of providing a definition.
 \end{itemize}
 
-In addition to that, the PVS \cl{DATATYPE} mechanism allows to define recursive sum types with constructors, accessors, and recognizers. There is no polymorphism in PVS, however \emph{theory parameters} allow to have some sort of genericity. Finally, another mechanism that we left out and that is worth mentioning is the \cl{IMPORTING} keyword which has a visibility effect and is required in the PVS implementation to be able to talk about a theory inside another theory.
+In addition to that, the PVS \cl{DATATYPE} mechanism allows to define recursive sum types with constructors, accessors, and recognizers. There is no polymorphism in PVS, however \emph{theory parameters} allow to have some sort of genericity. Finally, another mechanism that we left out and that is worth mentioning is the \cl{IMPORTING} keyword which has a visibility effect and is required in the PVS implementation to be able to talk about a theory inside another theory. \\
 
+PVS is also a semi-automated theorem prover \cite{PVS:prover} based on the inference rules of sequent calculus for propositional logic. It is highly interactive but can rely on very powerful tools to assist the user in the proof such as integrated SMT solvers or automatically repeatedly applying as many rewriting rules and simplifications as possible when needed.
 
 \subsection{Why translate PVS ?}
 
@@ -1427,43 +1428,19 @@ struct r_list_int {
 
 Since the translator's correctness itself has not be proven, there is no formal guarantee that the semantic will be preserved during the translation. In particular, even if some properties were proven on a certain PVS model, its translation to C could not verify these properties. This tool certainly does not allow the generation of high insurance code. The only way to do that would be to formally prove the correctness of the translator. The CompCert C compiler (\href{http://compcert.inria.fr}{http://compcert.inria.fr/compcert-C.html}), is an example of such a proven translator. \\
 
-
-We can only translate a subset of PVS syntax.
-What's missing ? \\
-
-We can only translate a subset of PVS type system.
-What's missing ?
+Finally, a good improvement would naturally be to extend the subset of PVS's syntax and type system that the translator can handle. In particular, it would be useful to be able to translate PVS \cl{DATATYPE}s into C++ classes for example. We could also consider integrating the translation of PVS float types to C float types (unless the float point arithmetic of these two languages differ) or PVS string to C strings. Also the code of the translator could probably use a proof reading from a Common Lisp specialist to improve its execution efficiency which is not negligible even for small programs.
 
 
-\subsection{My stay at SRI}
+\subsection{SRI: An inspiring environment.}
 
-Besides the conception and implementation of the PVS to C translator, my stay at SRI International was rich in interesting events. 
+Besides the conception and implementation of the PVS to C translator, my stay at SRI International was rich in interesting events which I am very thankful for. \\
 
-The first weeks of my stay were the occasion to discover PVS and Coq as I started working on a translator Coq to PVS. With Robin, we also wrote as an exercise a basic linear algebra library.
+The first weeks of my stay were the occasion to discover PVS and Coq as I started working on a translator Coq to PVS. With Robin, we also wrote as an exercise a basic linear algebra library. I learned the Common Lisp language the hard way while discovering the details of the middle- and back-end of the PVS API.I had never even heard about that very powerful language before but Sam Owre was of a very welcoming help. Among other exercises, I decided to write a Common Lisp parser to help me understand the huge architecture of the PVS API code (classes definitions, inheritances and organization, function dependances, ...)\\
 
-I discovered Lisp the hard way while discovering the middle- and back-end of the PVS API. Among other excerises, I decided to write a Common Lisp parser to help me understand the huge architecture of the PVS API code (classes definitions, inheritances and organization, function dependances, ...)
+I also have had the chance to attend to the many interesting seminars SRI hosted every week like the "Crazy Ideas" seminar. The SRI also organized a Summer School to which Robin and I were invited to attend and which was extremely interesting. Besides Shankar never hesitated to include us in many project such as HACMS or to introduce us to problems he was working on. \\
+\ \newline
 
-I also have had the chance to attend to the many interesting seminars SRI hosted every week. The "Crazy Ideas" seminar hosted every other week was a ...
-
-The SRI also organized a Summer School to which we were allowed to attend and which was very interesting.
-
-Shankar never hesitated to include us in many project
-
-I've been included in the HACMS project which was very interesting.
-With other:
-Correcting translator PVS to SMT-LIB
-
-Discovering PVS :
-Translating Coq proofs to PVS
-PVS library for basic linear algebra
-
-Robin project, HACMS \\
-Contest week-end 14-15 June \\
-Summer School \\
-Parsing Lisp code -> generate HTML architecture file\\
-Correcting translator PVS to SMT-LIB
-
-
+In the end I really had a good time at SRI and enjoyed working on my project which was quite fulfilling both in its theoretical and implementation approach. I am satisfied with the results I was able to obtain and I definitely learned a lot during this very enjoyable internship.
 
 
 \printbibliography

@@ -6,7 +6,7 @@
 \usepackage{amssymb}
 \usepackage{amsthm}
 \usepackage{amsfonts}
-\usepackage{xcolor}
+% \usepackage{xcolor}
 \usepackage{graphicx}
 
 
@@ -58,14 +58,14 @@
 
 
 
-\usetheme{Warsaw}
-\usecolortheme{default}
+\usetheme{Boadilla}
+\usecolortheme{beaver}
 
 
 \title[From PVS to C]{Translating PVS to C}
-% \subtitle{Subtitle}
-\author[Ferey]{Gaspard Ferey, Ecole Polytechnique}
-\institute{SRI International}
+\subtitle{SRI International}
+\author[Gaspard Férey]{Gaspard Férey}
+\institute{Ecole Polytechnique}
 \date{September 1st, 2014}
 
 
@@ -73,39 +73,74 @@
 
 \frame{\titlepage}
 
-
 \begin{frame}
 \frametitle{Table of Contents}
-\tableofcontents[currentsection]
+\tableofcontents
+% \tableofcontents[currentsection]
 \end{frame}
 
-\section{Introduction}
+
+\section{Context}
 
 \begin{frame}
-\frametitle{This is the first slide}
+\frametitle{What is PVS ?}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{This is the second slide}
-\framesubtitle{A bit more information about this}
+\frametitle{Why translate PVS ?}
 
+\begin{itemize}
+\item To be able to execute PVS
+\begin{itemize}
+\item Testing
+\item Debugging
+\end{itemize}
+\item To integrate PVS code into systems
+\end{itemize}
 \end{frame}
 
 
-\section{The translator}
+
+
+\section{Translating PVS}
+
+
+\subsection{Architecture}
 
 \begin{frame}
 \frametitle{Translation steps}
 
 \end{frame}
 
-
-
-\section{Static analysis}
+\subsection{Examples}
 
 \begin{frame}
+\frametitle{}
+
+\end{frame}
+
+
+
+\section{The update issue}
+
+\subsection{Reference counting}
+\begin{frame}
+\frametitle{A reference counting GC}
+
+\end{frame}
+
+
+\subsection{Static analysis}
+\begin{frame}
 \frametitle{Semantics}
+
+\end{frame}
+
+
+\subsection{Algorithm}
+\begin{frame}
+\frametitle{The flags}
 
 \end{frame}
 
@@ -113,12 +148,6 @@
 \frametitle{Algorithm}
 
 \end{frame}
-
-\begin{frame}
-\frametitle{}
-
-\end{frame}
-
 
 
 \section{Conclusion}
@@ -132,12 +161,27 @@
 
 \begin{frame}
 \frametitle{Questions ?}
-
 \begin{center}
 \includegraphics[scale=0.5]{includes/questions.jpg}
 \end{center}
+\end{frame}
 
 
+\subsection{Demonstration}
+
+\begin{frame}
+\frametitle{Demonstration}
+\begin{center}
+\includegraphics[scale=1.5]{includes/demogods.jpg}
+\end{center}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Questions ?}
+\begin{center}
+\includegraphics[scale=0.5]{includes/questions.jpg}
+\end{center}
 \end{frame}
 
 
