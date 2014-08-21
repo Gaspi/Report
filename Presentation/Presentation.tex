@@ -9,6 +9,8 @@
 % \usepackage{xcolor}
 \usepackage{graphicx}
 
+\usepackage{tikz}
+
 
 \usepackage[space]{grffile}
 
@@ -121,7 +123,7 @@
 \item Testing
 \item Debugging
 \end{itemize}
-\item To integrate PVS code into systems
+\item To integrate high-insurance PVS code into systems
 \end{itemize}
 
 \end{frame}
@@ -199,8 +201,8 @@ Syntax
 \item Integers, nil pointer
 \item Variables (\cl{X}, \cl{x}, \cl{y}, ...)
 \item \cl{newArray(x, y)}
-\item \cl{X[(x) := y]}
-\item \cl{X[(x) <- y]}
+\item \cl{X[x := y]}
+\item \cl{X[x <- y]}
 \item \cl{X[x]}
 \item \cl{let x = $a$ in $e$}
 \item \cl{if(x) $e_1$ else $e_2$}
@@ -244,8 +246,8 @@ Simple reduction rules:
 \end{eqnarray*}
 Introducing variables
 \begin{eqnarray*}
-<f\cl{(} x_1, ... , x_n \cl{)} | R, S> &\rightarrow& < \cl{pop(} [f] \cl{)} | R, \left( \biguplus_{1 \leq i \leq n} f_i \mapsto s(x_i) \right) :: S > \\
-<\cl{let} x \cl{ = } v \cl{ in } e | R, S> &\rightarrow& < \cl{pop(}e\cl{)}|R, (x \mapsto v) :: S > \\
+<f\cl{(} x_1, ... , x_n \cl{)} | R, S> &\rightarrow& < \cl{pop(} [f] \cl{)} | R, \left( \biguplus_{1 \leq i \leq n} f_i \mapsto S(x_i) \right) :: S > \\
+<\cl{let } x \cl{ = } v \cl{ in } e | R, S> &\rightarrow& < \cl{pop(}e\cl{)}|R, (x \mapsto v) :: S > \\
 <\cl{pop(} v \cl{)} | R, S> &\rightarrow& <v | R, pop(S) >
 \end{eqnarray*}
 \end{frame}
@@ -257,45 +259,248 @@ Introducing variables
 \framesubtitle{Operational semantics}
 Modifying the store
 \begin{eqnarray*}
-<\cl{newArray(} x, y \cl{)} | R, S> &\rightarrow& <r| R\uplus \left( r \mapsto (0)_{0 \leq i < S(x)} \right), S> \\
+<\cl{newArray(} x, y \cl{)} | R, S> &\rightarrow& <r| R\uplus \left( r \mapsto (S(y))_{0 \leq i < S(x)} \right), S> \\
 &\text{where}& r \text{ is a fresh pointer} \\
-< X \cl{[(} x \cl{) := } y \cl{]} | R, S> &\rightarrow& < r| R', S> \\
+< X \cl{[} x \cl{ := } y \cl{]} | R, S> &\rightarrow& < r| R', S> \\
 &\text{where}& r \text{ fresh pointer} \\
 &\text{and}& R' := R \uplus \left( r \mapsto A \right) \\
 &\text{and}& A  := R( S(X) ) \uplus \left( S(x) \mapsto S(y) \right) \\
-< X \cl{[(} x \cl{) <- } y \cl{]} | R, S> &\rightarrow& < X| R', S> \\
+< X \cl{[} x \cl{ <- } y \cl{]} | R, S> &\rightarrow& < X| R', S> \\
 &\text{where}& R' := R \uplus \left( S(X) \mapsto A \right) \\
 &\text{and}&   A  := R( S(X) ) \uplus \left( s(x) \mapsto S(y) \right)
 \end{eqnarray*}
 \end{frame}
 
 
-\begin{frame}
+\begin{frame}[fragile]
 \frametitle{Reference graph}
-In the body of a function
-[example]
-we can define the reference graph
-[definition]
+For a context in the body of a function
+\begin{lstlisting}
+f(A, B) =
+  let C = if(A[0] = 1) then A else B in
+  let D =
+    let E = C in E[0 := 0] in
+  D[0] + A(0)
+\end{lstlisting}
+we can define the reference graph $\mathcal{G}(R)(r)$ as
+\begin{eqnarray*}
+r &\in& \mathcal{G}(r) \\
+\mathcal{R} \cap R(\mathcal{G}(r)) &\subset& \mathcal{G}(r)
+\end{eqnarray*}
+We are interested in
+$$ \bigcup_{R} \ S^{-1}( \ \mathcal{G}(R)(S(x)) \ )  $$
 \end{frame}
 
-\begin{frame}
-\frametitle{Reference graph}
-We can keep track of it
-[
-two columns example
-column 1: PVS code
-column 2: Tree + live variable
-]
 
-The condition to destructively update is empty intersection
+\begin{frame}[fragile]
+\frametitle{Reference graph}
+\begin{columns}
+\begin{column}{0.5\textwidth}
+Definition of \cl{f}
+\begin{lstlisting}
+f(A, B) =
+  let C = A[0]      in
+  let D = C[0 := 0] in
+  let E = g(B)      in
+  let X = E[0 := 0] in
+  let F = if X[0] then D
+                  else X in
+  let G = F[0 := 0] in
+  let H = if B[0] then G
+                  else B in
+  H[0 := B[0]]
+\end{lstlisting}
+\end{column}
+\begin{column}{0.5\textwidth}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Reference graph}
+\begin{columns}
+\begin{column}{0.5\textwidth}
+\begin{lstlisting}
+f(A, B) =
+  let C = A[0]      in
+  let D = { C }     in
+  let E = g(B)      in
+  let X = E[0 := 0] in
+  let F = if X[0] then D
+                  else X in
+  let G = F[0 := 0] in
+  let H = if B[0] then G
+                  else B in
+  H[0 := B[0]]
+\end{lstlisting}
+\end{column}
+\begin{column}{0.5\textwidth}
+Reference graph
+\begin{center}
+\begin{tikzpicture}
+  [scale=.5,every node/.style={circle,fill=blue!20}]
+  \node (n1) at (3,4) {\cl{A}};
+  \node (n2) at (1,1)  {$\cl{A}^*$};
+  \node (n3) at (5,1)  {\cl{C}};
+
+  \foreach \from/\to in {n1/n2,n1/n3,n2/n3,n3/n2}
+    \draw[->] (\from) -- (\to);
+\end{tikzpicture}
+\end{center}
+\ \newline
+Variables lives in the context
+$$\{ \cl{B}, \cl{D}, \cl{E}, \cl{F}, \cl{G}, \cl{H}, \cl{X} \}$$
+\end{column}
+\end{columns}
+\ \newline \ \newline
+Destructive update would impose too many requirements to $f$.
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Reference graph}
+\begin{columns}
+\begin{column}{0.5\textwidth}
+Definition of \cl{f}
+\begin{lstlisting}
+f(A, B) =
+  let C = A[0]      in
+  let D = C[0 := 0] in
+  let E = g(B)      in
+  let X = { E }     in
+  let F = if X[0] then D
+                  else X in
+  let G = F[0 := 0] in
+  let H = if B[0] then G
+                  else B in
+  H[0 := B[0]]
+\end{lstlisting}
+\end{column}
+\begin{column}{0.5\textwidth}
+Reference graph
+\begin{center}
+\begin{tikzpicture}
+  [scale=.5,every node/.style={circle,fill=blue!20}]
+  \node (n1) at (3,4) {\cl{A}};
+  \node (n2) at (1,1)  {$\cl{A}^*$};
+  \node (n3) at (5,1)  {\cl{C}};
+  \node (n4) at (8,1) {\cl{E}};
+  \node (n5) at (8,4) {\cl{B}};
+
+  \foreach \from/\to in {n1/n2,n1/n3,n2/n3,n3/n2,n4/n5,n5/n4}
+    \draw[->] (\from) -- (\to);
+\end{tikzpicture}
+\end{center}
+\ \newline
+Variables lives in the context
+$$\{ \cl{B}, \cl{C}, \cl{D}, \cl{F}, \cl{G}, \cl{H}, \cl{X} \}$$
+\end{column}
+\end{columns}
+\ \newline \ \newline
+\cl{B} is live in the context.
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Reference graph}
+\begin{columns}
+\begin{column}{0.5\textwidth}
+\begin{lstlisting}
+f(A, B) =
+  let C = A[0]      in
+  let D = C[0 := 0] in
+  let E = g(B)      in
+  let X = E[0 := 0] in
+  let F = if X[0] then D
+                  else X in
+  let G = { F }     in
+  let H = if B[0] then G
+                  else B in
+  H[0 := B[0]]
+\end{lstlisting}
+\end{column}
+\begin{column}{0.5\textwidth}
+Reference graph
+\begin{center}
+\begin{tikzpicture}
+  [scale=.5,every node/.style={circle,fill=blue!20}]
+  \node (n1) at (3,1) {\cl{F}};
+  \node (n2) at (1,4) {\cl{D}};
+  \node (n3) at (5,4) {\cl{X}};
+  \node (n4) at (5,7) {\cl{E}};
+  \node (n5) at (1,7) {\cl{B}};
+  \node (n6) at (-1,4) {\cl{A}};
+  \node (n7) at (-3,1)  {$\cl{A}^*$};
+  \node (n8) at (1,1)  {\cl{C}};
+
+  \foreach \from/\to in {n1/n2,n1/n3,n2/n1,n3/n1,n5/n4,n4/n5,n6/n7,n6/n8,n7/n8,n8/n7}
+    \draw[->] (\from) -- (\to);
+\end{tikzpicture}
+\end{center}
+Variables lives in the context
+$$\{ \cl{B}, \cl{C}, \cl{G}, \cl{H} \}$$
+\end{column}
+\end{columns}
+\ \newline \ \newline
+Destructive update possible.
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Reference graph}
+\begin{columns}
+\begin{column}{0.5\textwidth}
+\begin{lstlisting}
+f(A, B) =
+  let C = A[0]      in
+  let D = C[0 := 0] in
+  let E = g(B)      in
+  let X = E[0 := 0] in
+  let F = if X[0] then D
+                  else X in
+  let G = F[0 <- 0] in
+  let H = if B[0] then G
+                  else B in
+  { H }
+\end{lstlisting}
+\ \newline
+Variables lives in the context
+$$\{  \}$$
+\end{column}
+\begin{column}{0.5\textwidth}
+Reference graph
+\begin{center}
+\begin{tikzpicture}
+  [scale=.5,every node/.style={circle,fill=blue!20}]
+  \node (n6) at (-1,4) {\cl{A}};
+  \node (n7) at (-3,1) {$\cl{A}^*$};
+  \node (n8) at (1,1)  {\cl{C}};
+  \node (n1) at (3,1)  {\cl{H}};
+  \node (n2) at (1,4)  {\cl{B}};
+  \node (n3) at (5,4)  {\cl{G}};
+  \node (n4) at (5,7)  {\cl{F}};
+  \node (n5) at (1,7)  {\cl{E}};
+  \node (n9) at (5,10) {\cl{X}};
+  \node (n0) at (1,10) {\cl{D}};
+
+  \foreach \from/\to in {n1/n2,n1/n3,n2/n1,n3/n1,n6/n7,n6/n8,n7/n8,n8/n7,n2/n5,n5/n2,n3/n4,n4/n3,n4/n9,n9/n4,n4/n0,n0/n4}
+    \draw[->] (\from) -- (\to);
+\end{tikzpicture}
+\end{center}
+\end{column}
+\end{columns}
+\ \newline
+Destructive update possible.
 \end{frame}
 
 
 
 
-
-\subsection{Our implementation}
-
+\subsection{Mutable analysis}
 
 \begin{frame}
 \frametitle{The flags}
@@ -310,7 +515,7 @@ We implement an approximation of the analysis using three flags
 \end{itemize}
 \item \textbf{dupl}
 \begin{itemize}
-\item Argument: Possible output variable of a call to this function
+\item Argument: Possible active variable in a call to this function.
 \item Expression: May be aliased to the return value.
 \end{itemize}
 \item \textbf{safe}
@@ -324,26 +529,83 @@ We implement an approximation of the analysis using three flags
 
 \begin{frame}
 \frametitle{The rules}
-
-\textbf{mutable} flag:
+\begin{itemize}
+\itemsep1em
+\item Two versions for each function
+\begin{itemize}
+\item destructive
+\item non destructive
+\end{itemize}
+\item \textbf{mutable} flag:
 \begin{itemize}
 \itemsep0em
 \item 
 \end{itemize}
-
-\textbf{dupl} flag:
+\item \textbf{dupl} flag:
 \begin{itemize}
 \itemsep0em
 \item 
 \end{itemize}
-
-
+\end{itemize}
 \end{frame}
 
+
+\begin{frame}[fragile]
+\frametitle{Example}
+\begin{columns}
+\begin{column}{0.5\textwidth}
+Destructive version of \cl{f}
+\begin{lstlisting}
+f(A, B) =
+  let C = A[0]      in
+  let D = C[0 := 0] in
+  let E = g(B)      in
+  let X = E[0 := 0] in
+  let F = if X[0] then D
+                  else X in
+  let G = F[0 <- 0] in
+  let H = if B[0] then G
+                  else B in
+  H[0 <- 0]
+\end{lstlisting}
+\end{column}
+\begin{column}{0.5\textwidth}
+\pause
+\cl{C} no flags \\
+\pause
+\cl{D} \textbf{ mutable }\\
+$\Longleftarrow$ non destructive update\\
+\pause
+\cl{E} no flags \\
+\pause
+\cl{X} \textbf{ mutable }\\
+$\Longleftarrow$ non destructive update\\
+\pause
+\cl{F} \textbf{ mutable } \\
+$\Longleftarrow$ \cl{D} and \cl{X} \textbf{safe} and \textbf{mutable}\\
+\pause
+\cl{G} \textbf{ mutable } \\
+$\Longleftarrow$ \cl{F} \textbf{safe} and \textbf{mutable}\\
+\pause
+\cl{H} \textbf{ mutable } \\
+$\Longleftarrow$ \cl{G} and \cl{B} \textbf{safe} and \textbf{mutable}\\
+\pause
+$\Longrightarrow$ Arguments \cl{B} gets \textbf{mutable} \\
+\pause
+\cl{H} \textbf{safe}
+\end{column}
+\end{columns}
+\end{frame}
 
 \begin{frame}
 \frametitle{A reference counting GC}
 We complete the static analysis with a reference counting garbage collector (GC)
+\begin{itemize}
+\itemsep1em
+\item Easy to implement in C (hashtable of pointers)
+\item Memory freed soon
+\item The reference count can allow safe update to be made destructive
+\end{itemize}
 \end{frame}
 
 
@@ -359,6 +621,7 @@ We complete the static analysis with a reference counting garbage collector (GC)
 \begin{frame}
 \frametitle{Translation steps}
 \begin{itemize}
+\itemsep2em
 \item Typechecking: PVS typechecker
 \begin{itemize}
 \item TCCs are generated
@@ -377,6 +640,7 @@ We complete the static analysis with a reference counting garbage collector (GC)
 \begin{frame}
 \frametitle{Translation steps (2)}
 \begin{itemize}
+\itemsep2em
 \item Static analysis:
 \begin{itemize}
 \item destructive updates added
@@ -398,18 +662,11 @@ We complete the static analysis with a reference counting garbage collector (GC)
 \begin{frame}
 \frametitle{Implementation details}
 \begin{itemize}
+\itemsep2em
 \item In Common Lisp
 \item Directly integrated to PVS  (soon)
 \item Require the GMP library to run C code
 \end{itemize}
-
-\end{frame}
-
-
-\subsection{Examples}
-
-\begin{frame}
-\frametitle{Example}
 
 \end{frame}
 
@@ -442,14 +699,6 @@ We complete the static analysis with a reference counting garbage collector (GC)
 \frametitle{Demonstration}
 \begin{center}
 \includegraphics[scale=1.5]{includes/demogods.jpg}
-\end{center}
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Questions ?}
-\begin{center}
-\includegraphics[scale=0.5]{includes/questions.jpg}
 \end{center}
 \end{frame}
 
