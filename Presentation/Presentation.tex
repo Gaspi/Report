@@ -83,14 +83,39 @@
 \section{Context}
 
 \begin{frame}
+\frametitle{Table of Contents}
+\tableofcontents[currentsection]
+\end{frame}
+
+
+\begin{frame}
 \frametitle{What is PVS ?}
 
+\begin{itemize}
+\itemsep2em
+\item A specification language
+\begin{itemize}
+\item Typed expression definition
+\item Theories, datatypes, ...
+\end{itemize}
+\item A semi automated theorem prover
+\begin{itemize}
+\item Higher order logic
+\item Type system, judgments, ...
+\item Theorems, properties, ...
+\item SMT solvers integrated, tools, ...
+\end{itemize}
+\item A functional programming language (?)
+\end{itemize}
+
 \end{frame}
+
 
 \begin{frame}
 \frametitle{Why translate PVS ?}
 
 \begin{itemize}
+\itemsep2em
 \item To be able to execute PVS
 \begin{itemize}
 \item Testing
@@ -98,59 +123,303 @@
 \end{itemize}
 \item To integrate PVS code into systems
 \end{itemize}
+
 \end{frame}
 
 
 
 
-\section{Translating PVS}
 
+\section{Static analysis}
+\begin{frame}
+\frametitle{Table of Contents}
+\tableofcontents[currentsection]
+\end{frame}
+
+\subsection{The update issue}
+
+\begin{frame}
+\frametitle{Update expression}
+\begin{itemize}
+\itemsep2em
+\item In functional programming languages,
+$$ E := A \cl{ WITH [($x$) := $y$]} $$
+refers $i \mapsto \left\lbrace \begin{array}{ll}
+A(i) & \text{if $i \neq x$} \\
+y & \text{if } i = x
+\end{array} \right. $
+\item In imperative languages
+\begin{itemize}
+\item \cl{A[x := y]} a non destructive update using a copy of $A$.
+\item \cl{A[x <- y]} a destructive, in-place update of the aggregate structure representing A.
+\end{itemize}
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Two dangers}
+\begin{itemize}
+\itemsep2em
+\item Unsafe occurrence
+$$ \cl{LET B = A WITH[(0) := 0] IN B(0) + A(0)} $$
+The array represented by \cl{A} is used later in the code.
+\item Trapped reference
+$$ \cl{LET A = B(0) IN f( A WITH [(0) := 0], B(0) )} $$
+\cl{B} is affected by a destructive update of the array represented by \cl{A}.
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Previous analysis}
+Shankar's analysis relies on sets of \emph{variables}
+\begin{itemize}
+\item $Av$ active variables
+\item $Ov$ output variables
+\item $Fv$ free variables
+\item $Lv$ live variables in an \emph{update context}
+\end{itemize}
+\ \newline
+Cerny and Shankar's analysis adds \emph{flow analysis}.
+\end{frame}
+
+
+
+\subsection{Reference tracking}
+
+\begin{frame}
+\frametitle{The intermediate language}
+\begin{columns}
+\begin{column}{0.45\textwidth}
+Syntax
+\begin{itemize}
+\item Integers, nil pointer
+\item Variables (\cl{X}, \cl{x}, \cl{y}, ...)
+\item \cl{newArray(x, y)}
+\item \cl{X[(x) := y]}
+\item \cl{X[(x) <- y]}
+\item \cl{X[x]}
+\item \cl{let x = $a$ in $e$}
+\item \cl{if(x) $e_1$ else $e_2$}
+\item \cl{f($\cl{x}_1$, ... ,$\cl{x}_n$)}
+\end{itemize}
+\end{column}
+
+\begin{column}{0.55\textwidth}
+Memory state representation:
+\begin{itemize}
+\item Variables space $Var$
+\item Reference space $\mathcal{R}$
+\item Value space $\mathcal{V} := \N \cup \mathcal{R}$
+\item Store $R : \mathcal{R} \longrightarrow \mathcal{V}$
+\item Stack $S : Var \longrightarrow \mathcal{V}$
+\end{itemize}
+\ \newline
+Evaluation context
+\begin{itemize}
+\item hole $\{\}$
+\item \cl{let x = $\{\}$ in $e$}
+\item $E_1\{E_2\}$
+\end{itemize}
+\end{column}
+\end{columns}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The intermediate language}
+\framesubtitle{Operational semantics}
+Simple reduction rules:
+\begin{eqnarray*}
+<x | R, S> &\rightarrow& < S(x)|R,S> \\
+<x \cl{[} y \cl{]} | R, S> &\rightarrow & < R(S(x))(S(y))|R,S> \\
+<\cl{if(x) } a \cl{ else } b |R,S> &\rightarrow&
+\left\lbrace \begin{array}{ll}
+<b|R,S> & \text{if } S(x) = 0 \\
+<a|R,S> & \text{otherwise}
+\end{array} \right.
+\end{eqnarray*}
+Introducing variables
+\begin{eqnarray*}
+<f\cl{(} x_1, ... , x_n \cl{)} | R, S> &\rightarrow& < \cl{pop(} [f] \cl{)} | R, \left( \biguplus_{1 \leq i \leq n} f_i \mapsto s(x_i) \right) :: S > \\
+<\cl{let} x \cl{ = } v \cl{ in } e | R, S> &\rightarrow& < \cl{pop(}e\cl{)}|R, (x \mapsto v) :: S > \\
+<\cl{pop(} v \cl{)} | R, S> &\rightarrow& <v | R, pop(S) >
+\end{eqnarray*}
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{The intermediate language}
+\framesubtitle{Operational semantics}
+Modifying the store
+\begin{eqnarray*}
+<\cl{newArray(} x, y \cl{)} | R, S> &\rightarrow& <r| R\uplus \left( r \mapsto (0)_{0 \leq i < S(x)} \right), S> \\
+&\text{where}& r \text{ is a fresh pointer} \\
+< X \cl{[(} x \cl{) := } y \cl{]} | R, S> &\rightarrow& < r| R', S> \\
+&\text{where}& r \text{ fresh pointer} \\
+&\text{and}& R' := R \uplus \left( r \mapsto A \right) \\
+&\text{and}& A  := R( S(X) ) \uplus \left( S(x) \mapsto S(y) \right) \\
+< X \cl{[(} x \cl{) <- } y \cl{]} | R, S> &\rightarrow& < X| R', S> \\
+&\text{where}& R' := R \uplus \left( S(X) \mapsto A \right) \\
+&\text{and}&   A  := R( S(X) ) \uplus \left( s(x) \mapsto S(y) \right)
+\end{eqnarray*}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Reference graph}
+In the body of a function
+[example]
+we can define the reference graph
+[definition]
+\end{frame}
+
+\begin{frame}
+\frametitle{Reference graph}
+We can keep track of it
+[
+two columns example
+column 1: PVS code
+column 2: Tree + live variable
+]
+
+The condition to destructively update is empty intersection
+\end{frame}
+
+
+
+
+
+\subsection{Our implementation}
+
+
+\begin{frame}
+\frametitle{The flags}
+We implement an approximation of the analysis using three flags
+\begin{itemize}
+\itemsep1.5em
+\item \textbf{mutable}
+\begin{itemize}
+\item Variable: Every other variable that may point to that variable is not live.
+\item Argument: Variables passed as this argument must be flagged \textbf{mutable} and \textbf{safe}.
+\item Function: The result of a call to that function is "fresh".
+\end{itemize}
+\item \textbf{dupl}
+\begin{itemize}
+\item Argument: Possible output variable of a call to this function
+\item Expression: May be aliased to the return value.
+\end{itemize}
+\item \textbf{safe}
+\begin{itemize}
+\item Last of occurrence of a variable
+\end{itemize}
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{The rules}
+
+\textbf{mutable} flag:
+\begin{itemize}
+\itemsep0em
+\item 
+\end{itemize}
+
+\textbf{dupl} flag:
+\begin{itemize}
+\itemsep0em
+\item 
+\end{itemize}
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{A reference counting GC}
+We complete the static analysis with a reference counting garbage collector (GC)
+\end{frame}
+
+
+
+\section{The PVS Translator}
+\begin{frame}
+\frametitle{Table of Contents}
+\tableofcontents[currentsection]
+\end{frame}
 
 \subsection{Architecture}
 
 \begin{frame}
 \frametitle{Translation steps}
+\begin{itemize}
+\item Typechecking: PVS typechecker
+\begin{itemize}
+\item TCCs are generated
+\end{itemize}
+\item Lexical and syntactic analysis: PVS lexer and parser
+\begin{itemize}
+\item PVS $\longrightarrow$ CLOS representation
+\end{itemize}
+\item Translation:
+\begin{itemize}
+\item CLOS representation $\longrightarrow$ intermediate language
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Translation steps (2)}
+\begin{itemize}
+\item Static analysis:
+\begin{itemize}
+\item destructive updates added
+\end{itemize}
+\item Optimizations: Several passes
+\begin{itemize}
+\item Choosing C types
+\item Declaring and freeing variables
+\end{itemize}
+\item Code generation: 
+\begin{itemize}
+\item intermediate language $\longrightarrow$ compilable C code
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\subsection{Implementation}
+
+\begin{frame}
+\frametitle{Implementation details}
+\begin{itemize}
+\item In Common Lisp
+\item Directly integrated to PVS  (soon)
+\item Require the GMP library to run C code
+\end{itemize}
 
 \end{frame}
+
 
 \subsection{Examples}
 
 \begin{frame}
-\frametitle{}
+\frametitle{Example}
 
 \end{frame}
 
-
-
-\section{The update issue}
-
-\subsection{Reference counting}
-\begin{frame}
-\frametitle{A reference counting GC}
-
-\end{frame}
-
-
-\subsection{Static analysis}
-\begin{frame}
-\frametitle{Semantics}
-
-\end{frame}
-
-
-\subsection{Algorithm}
-\begin{frame}
-\frametitle{The flags}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Algorithm}
-
-\end{frame}
 
 
 \section{Conclusion}
+\begin{frame}
+\frametitle{Table of Contents}
+\tableofcontents[currentsection]
+\end{frame}
 
 \begin{frame}
 \frametitle{Conclusion}
