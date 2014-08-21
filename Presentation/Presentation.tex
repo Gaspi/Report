@@ -29,6 +29,13 @@
 
 \newcommand{\cl}[1]{\texttt{#1}}
 
+\newcommand{\mut}{\textbf{mutable }}
+\newcommand{\nmut}{\textbf{non-mutable }}
+\newcommand{\bang}{\textbf{mutable }}
+\newcommand{\safe}{\textbf{safe }}
+\newcommand{\dupl}{\textbf{duplicated }}
+
+
 % --- Parti math. (app.)
 %\newtheorem{theorem}{Theorem}
 %\newtheorem{lemma}[theorem]{Lemma}
@@ -46,12 +53,6 @@
 
 \newcommand{\mpzt}{ \texttt{ mpz\_t } }
 \newcommand{\mpqt}{ \texttt{ mpq\_t } }
-
-\newcommand{\mut}{  \textbf{ mutable } }
-\newcommand{\nmut}{ \textbf{ non-mutable } }
-\newcommand{\bang}{ \textbf{ mutable } }
-\newcommand{\safe}{ \textbf{ safe } }
-\newcommand{\dupl}{ \textbf{ duplicated } }
 
 % evaluation context hole
 \newcommand{\econt}[1]{[#1]}
@@ -507,10 +508,10 @@ Destructive update possible.
 We implement an approximation of the analysis using three flags
 \begin{itemize}
 \itemsep1.5em
-\item \textbf{mutable}
+\item \bang
 \begin{itemize}
 \item Variable: Every other variable that may point to that variable is not live.
-\item Argument: Variables passed as this argument must be flagged \textbf{mutable} and \textbf{safe}.
+\item Argument: Variables passed as this argument must be flagged \bang and \safe.
 \item Function: The result of a call to that function is "fresh".
 \end{itemize}
 \item \textbf{dupl}
@@ -536,7 +537,7 @@ We implement an approximation of the analysis using three flags
 \item destructive
 \item non destructive
 \end{itemize}
-\item \textbf{mutable} flag:
+\item \bang flag:
 \begin{itemize}
 \itemsep0em
 \item 
@@ -573,26 +574,26 @@ f(A, B) =
 \pause
 \cl{C} no flags \\
 \pause
-\cl{D} \textbf{ mutable }\\
+\cl{D} \bang \\
 $\Longleftarrow$ non destructive update\\
 \pause
 \cl{E} no flags \\
 \pause
-\cl{X} \textbf{ mutable }\\
+\cl{X} \bang \\
 $\Longleftarrow$ non destructive update\\
 \pause
-\cl{F} \textbf{ mutable } \\
-$\Longleftarrow$ \cl{D} and \cl{X} \textbf{safe} and \textbf{mutable}\\
+\cl{F} \bang \\
+$\Longleftarrow$ \cl{D} and \cl{X} \safe and \bang \\
 \pause
-\cl{G} \textbf{ mutable } \\
-$\Longleftarrow$ \cl{F} \textbf{safe} and \textbf{mutable}\\
+\cl{G} \bang \\
+$\Longleftarrow$ \cl{F} \safe and \bang \\
 \pause
 \cl{H} \textbf{ mutable } \\
-$\Longleftarrow$ \cl{G} and \cl{B} \textbf{safe} and \textbf{mutable}\\
+$\Longleftarrow$ \cl{G} and \cl{B} \safe and \bang \\
 \pause
-$\Longrightarrow$ Arguments \cl{B} gets \textbf{mutable} \\
+$\Longrightarrow$ Arguments \cl{B} gets \bang \\
 \pause
-\cl{H} \textbf{safe}
+\cl{H} \safe
 \end{column}
 \end{columns}
 \end{frame}
