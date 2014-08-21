@@ -12,7 +12,7 @@ BEGIN
 
 
   Val  : TYPE+ = subrange(0, 59557) CONTAINING 0
-  Ind  : TYPE+ = below(1000)        CONTAINING 0
+  Ind  : TYPE+ = below(10000)        CONTAINING 0
   Arr  : TYPE+ = [ Ind -> Val ]
   
   A : VAR Arr
@@ -21,11 +21,11 @@ BEGIN
   
   init(A, i, v): RECURSIVE Arr =
     let B = A with [(i) := v] in
-      if i >= 999 then B	
+      if i >= 9999 then B
       else init(B, i+1, rem(59557)(12345 * v) ) endif
-  MEASURE 999 - i
+  MEASURE 9999 - i
   
-  J :Arr = lambda(k:Ind): 999 - k
+  J :Arr = lambda(k:Ind): 9999 - k
   Z :Arr = lambda(x:Ind) : 0
   T :Arr = init(Z, 0, 9876)
   
@@ -37,12 +37,12 @@ BEGIN
     ENDIF
     MEASURE i
 
-  insort_rec(A, (n:upto(1000)) ): RECURSIVE Arr =
-    IF n < 1000 THEN
+  insort_rec(A, (n:upto(10000)) ): RECURSIVE Arr =
+    IF n < 10000 THEN
       let An = A(n) in
         insort_rec( insert(A, An, n), n + 1 )
     ELSE A ENDIF
-    MEASURE 1000 - n
+    MEASURE 10000 - n
 
   insort(A): Arr = insort_rec(A, 0)
   
