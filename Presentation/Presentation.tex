@@ -680,10 +680,42 @@ We complete the static analysis with a reference counting garbage collector (GC)
 \end{frame}
 
 \begin{frame}
-\frametitle{Conclusion}
-
+\frametitle{Successes}
+\begin{itemize}
+\itemsep2em
+\item Working compiler
+\begin{itemize}
+\item Never fail
+\item Output C code compilable with gcc, CompCert (?)
+\end{itemize}
+\item Promising analysis
+\item Optimization efficient (for simple programs)
+\begin{itemize}
+\item 100 times faster than Ground Evaluator
+\end{itemize}
+\end{itemize}
 \end{frame}
 
+
+\begin{frame}
+\frametitle{Left to be done}
+\begin{itemize}
+\itemsep2em
+\item More work on static analysis
+\begin{itemize}
+\item Reference counting
+\item Publication
+\end{itemize} 
+\item Less approximate implementation
+\item Debugging, optimizing Lisp code
+\item Wider subset of PVS
+\begin{itemize}
+\item Closures
+\item More types
+\item ...
+\end{itemize}
+\end{itemize}
+\end{frame}
 
 
 \begin{frame}
