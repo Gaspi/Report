@@ -89,7 +89,7 @@
 \begin{abstract}
 PVS (standing for Prototype Verification System), is an Open Source project developed by CSL at SRI International and aiming to be both a semi-automated theorem prover providing formal support for conceptualization and debugging in the early stages of the design of hardware or software systems and a programming language. The evaluation of PVS expressions relies so far on a build-in PVS interpreter based on Common Lisp, called "Ground Evaluator". In order to allow the integration of PVS code as well as its fast execution for debugging and testing purposes, we describe here a translator of a subset of PVS to the language C.\\
 
-The update of aggregate data structure, such as arrays, are frequent in functional programs and requires copying before being updated which is a significant source of space/time inefficiencies.
+The update of aggregate data structure, such as arrays, are frequent in functional programs and requires copying before being updated which is a significant source of space and time inefficiencies.
 However the execution of updates by copying is often redundant and could be safely implemented by means of destructive, in-place updates in an imperative program.
 We describe a simple method for analyzing and replacing the safe updates in an imperative program with destructive, in-place update.
 This method has been implemented to optimize the PVS translator.
@@ -127,8 +127,8 @@ A PVS file consists in one or several theories, that are somewhat similar to mod
 
 The sort of the declaration can be:
 \begin{itemize}
-\item A PVS type expression (lines 15-17 in the PVS example), in which case the declaration defines a new value of that type. A TCC is generated to prove that the definition is of the given type unless no definition is given. In that case, a TCC might be generated to prove the type is non empty.
-\item \cl{TYPE} or \cl{NONEMPTY\_TYPE} (or \cl{TYPE+}), in which case the declaration defines a new type. A TCC might be generated to guarantee the non emptiness.
+\item A PVS type expression (lines 29-31 in the PVS example), in which case the declaration defines a new value of that type. A TCC is generated to prove that the definition is of the given type unless no definition is given. In that case, a TCC might be generated to prove the type is non empty.
+\item \cl{TYPE}, \cl{NONEMPTY\_TYPE} or \cl{TYPE+}, (lines 15-17 in the PVS example) in which case the declaration defines a new type. A TCC might be generated to guarantee the non emptiness.
 \item A theorem-like keyword such as \cl{THEOREM} or \cl{LEMMA}, in which case the declaration defines a new theorem. A proof obligation is generated, and the theorem can be used in proofs in the remaining declarations
 in the file.
 \item An axiom-like keyword such as \cl{AXIOM} or \cl{POSTULATE}, in which case the declaration introduces a new axiom. No proof obligation is generated and the proposition can be used in proofs in the remaining declarations in the file.
@@ -152,7 +152,7 @@ However such systems are themselves made to be later executed and integrated int
 
 The DARPA-funded project High Assurance Cyber-Military System (\href{http://www.darpa.mil/Our_Work/I2O/Programs/High-Assurance_Cyber_Military_Systems_(HACMS).aspx}{HACMS}) aims to produce systems and software with proved reliability and security. It uses the abstraction of nodes and topics to describe the different components and communication channels. A PVS model of these nodes and topics allows to prove security properties. \\
 
-This is a good example of system which requires an implementation and integration of the proven algorithms. For that purpose, a translator PVS to C would be very helpful since most of the ROS systems use the C language.
+This is a good example of system which requires an implementation and integration of algorithms proven using PVS. For that purpose, a translator from PVS to C would be very helpful since most of the ROS systems heavily relies on the C language.
 
 \subsubsection*{Other translators}
 
@@ -160,12 +160,12 @@ Translating PVS was already done for different purposes.
 \begin{itemize}
 \item PVS come with a native PVS to Common Lisp translator. This is used to run PVS programs for testing and debugging purposes. Since PVS's API relies heavily on the Common Lisp language, it is very easy to run PVS code within Emacs. The "Ground Evaluator" uses the generated Common Lisp code to evaluate PVS expressions. It provides a more user-friendly interface for the PVS translator by being integrated into Emacs and translating simple Common Lisp expression back to PVS.
 \item PVS expressions can also be translated to Yices's specification language syntax. Yices is an efficient SMT solver developed at SRI by Bruno Dutertre. This translation is a way to "plug" the Yices solver into PVS, allowing automated proof of theorems and TCCs.
-\item PVS was translated to the Clean language.
+\item PVS was also translated to the Clean language.
 \item Lately PVS was also translated to the SMT-LIB language (work in progress) for standardization purposes. This would allow every SMT solver able to process SMT-LIB standard inputs such as Yices 2, to be plugged into PVS for further proof automation.
 \end{itemize}
 
 
-\newpage
+
 \section{Translating PVS}
 
 A translator is a program taking the source code of program $P$ written in the programming language $\mathcal{L}_A$ as an entry and generating the code of an other program $Q$ in the target language $\mathcal{L}_B$ as an output. In our case, $\mathcal{L}_A$ is a subset of PVS and $\mathcal{L}_B$ is the language C. It is expected from a translator to:
@@ -214,7 +214,7 @@ The C language \cite{huss2004c} has a few base types to represent bounded intege
 
 To represent big integers or rationals, we use the GMP library which introduces a few other types.
 
-\begin{lstlisting}[caption=C types]
+\begin{lstlisting}[caption=A few C types]
     // integer and floating point types
     [unsigned] char, int, long, double
     type*         //arrays
@@ -879,7 +879,7 @@ The algorithm is described Figure~\ref{fig:algo}. It terminates since \dupl the 
 \item Perform several passes \bang analysis.\\
 We flag a variable $x$ when $x$ is initialized with.
   \begin{itemize}
-    \item A newly created array (\cl{array(x)}).
+    \item A newly created array (\cl{newArray(} $x$ \cl{, } $y$ \cl{)}).
     \item An update (destructive or not).
     \item A call to a function with a \bang return type.
   \end{itemize}
@@ -993,7 +993,7 @@ A \emph{redex} is an expression of the following form
 \item $x$
 \item $X[y]$
 \item $\cl{if (} x \cl{) } a \cl{ else } b $
-\item $\cl{array(} x \cl{)}$
+\item $\cl{newArray(} x \cl{, } y \cl{)}$
 \end{enumerate} &
 \begin{enumerate}
 \setcounter{enumi}{4}
@@ -1035,10 +1035,10 @@ A \emph{reduction} transforms a pair consisting of a redex and a store. The redu
 \item $<x \cl{[} y \cl{]} , S> \ \longrightarrow \ < h(s(x))(s(y)) , S>$
 \item $<\cl{if (} x \cl{) } a \cl{ else } b, S>  \ \longrightarrow \ 
 \left\lbrace \begin{array}{ll}
-< \cl{pop(}a\cl{)} , [] :: S > & \text{if } s(x) = 0 \\
-< \cl{pop(}b\cl{)} , [] :: S > & \text{otherwise}
+< \cl{pop(}b\cl{)} , [] :: S > & \text{if } s(x) = 0 \\
+< \cl{pop(}a\cl{)} , [] :: S > & \text{otherwise}
 \end{array} \right. $
-\item $<\cl{array(} x \cl{)} , S > \ \longrightarrow \ <r, \left(s, h \uplus \left( r \mapsto (0)_{0 \leq i < s(x)} \right) \right) >$ where $r$ is a fresh pointer.
+\item $<\cl{newArray(} x \cl{, } y \cl{)} , S > \ \longrightarrow \ <r, \left(s, h \uplus \left( r \mapsto (s(y))_{0 \leq i < s(x)} \right) \right) >$ where $r$ is a fresh pointer.
 \item $< X \cl{[(} x \cl{) := } y \cl{]} , S> \ \longrightarrow \ < r, (s, h') >$ where $r$ is a fresh pointer and
 $$ h' = h \uplus \left( r \mapsto h( s(X) ) \uplus \left( s(x) \mapsto s(y) \right) \right) $$
 \item $< X \cl{[(} x \cl{) <- } y \cl{]} , S> \ \longrightarrow \ < X, (s, h') >$ where
@@ -1130,7 +1130,7 @@ $\cl{if (} x \cl{) } a$ \\
 $ \cl{ else } \ \  b$
 \vspace{0.1cm}
 \end{minipage} & $Ov(a) \cup Ov(b)$ & $Av(a) \cup Av(b)$ & $Fv(a) \cup Fv(b)$ \\ \hline
-$\cl{array(} x \cl{)}$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\ \hline
+$\cl{newArray(} x \cl{, } y \cl{)}$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\ \hline
 $X \cl{[(} x \cl{) := } y \cl{]}$ & $ \emptyset $ & $\{ X^*, y \}$ & $\{ X, y \}$ \\ \hline
 $X \cl{[(} x \cl{) <- } y \cl{]}$ & $ \{ X \} $ & $\{ X, y \}$ & $\{ X, y \}$ \\ \hline
 $\begin{array}{l}
@@ -1364,9 +1364,9 @@ It can easily be verified for every redex. When $a = U\ucont{b}$, we have $Lc(a)
 \section{Conclusion}
 \label{sec:Concl}
 
-We have described the general architecture of the translator from PVS to the C language we implemented and integrated into PVS. We have provided a few examples of its execution on simple examples to illustrate its mechanisms.
+We have described the general architecture of the translator from PVS to the C language we implemented and integrated into PVS. We have provided a few examples of its execution on simple PVS programs to illustrate its mechanisms.
 
-We have described the update issue and various ways to deal with it. Both the use of a reference counting garbage collector and an analysis of the intermediate language were implemented.
+We have introduced the update issue and various ways to deal with it. Both the use of a reference counting garbage collector and an analysis of the intermediate language were implemented into the translator and help providing efficient C code. The implementation of the analysis differ from the actual analysis which is introduced for theoretical purposes only.
 
 We have defined the semantics of the intermediate language which allowed us to prove the correctness of the analysis that is performed on it to eliminate non destructive updates.
 
@@ -1381,7 +1381,7 @@ This project was a great challenge and an opportunity for me to conduct my own a
 
 \subsubsection*{Working with new languages and tools}
 
-To be able to translate PVS, I had to fully understand not only the syntax and semantics of the PVS language but also the structure of the PVS API written in Common Lisp. This means I also had to learn Common Lisp which I decided then to use to write the translator mostly because it made the integration of the native PVS parser and typechecker easier. Finally I had to discover the C language which I only had a basic knowledge of.
+To be able to translate PVS, I had to fully understand not only the syntax and semantics of the PVS language but also the structure of the PVS API written in Common Lisp. This means I also had to learn Common Lisp which I decided then to use to write the translator mostly because it made the integration of the native PVS parser and typechecker easier. Finally I had the occasion to learn a lot about the C language which I only had a basic knowledge of.
 
 
 \subsubsection*{Integrating the GMP library}
@@ -1440,7 +1440,7 @@ The first weeks of my stay were the occasion to discover PVS and Coq as I starte
 I also have had the chance to attend to the many interesting seminars SRI hosted every week like the "Crazy Ideas" seminar. The SRI also organized a Summer School to which Robin and I were invited to attend and which was extremely interesting. Besides Shankar never hesitated to include us in many project such as HACMS or to introduce us to problems he was working on. \\
 \ \newline
 
-In the end I really had a good time at SRI and enjoyed working on my project which was quite fulfilling both in its theoretical and implementation approach. I am satisfied with the results I was able to obtain and I definitely learned a lot during this very enjoyable internship.
+In the end I really had a good time at SRI and enjoyed working on my project which was quite fulfilling both in its theoretical and implementation approach. I am satisfied with the results I was able to obtain and I definitely developed practical knowledge which will prove useful. I certainly learned a lot during this very enjoyable internship and would like to thank again all the CSL for the amazing time I had at SRI.
 
 
 \printbibliography
