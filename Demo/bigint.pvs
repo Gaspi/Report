@@ -1,0 +1,21 @@
+bigint : THEORY
+BEGIN
+
+  Ind  : TYPE+ = below(10000)        CONTAINING 0
+  Arr : TYPE+ = [below(2) -> int]
+  
+  A : VAR Arr
+  n : VAR Ind
+  
+  Fib0:Arr = lambda(x:below(2)):x
+  
+  fiborec(A, n): RECURSIVE int =
+    if n <= 1 then A(n)
+    else fiborec( A WITH [ (0) := A(1),
+                           (1) := A(0) + A(1) ], n-1)
+    endif
+  MEASURE n
+  
+  fibo(n):int = fiborec( Fib0, n )
+  
+END bigint
