@@ -524,7 +524,7 @@ We implement an approximation of the analysis using three flags
 \item \textbf{dupl}
 \begin{itemize}
 \item Argument: Possible active variable in a call to this function.
-\item Expression: May be aliased to the return value.
+\item Expression: May be active in the return value.
 \end{itemize}
 \item \textbf{safe}
 \begin{itemize}
@@ -544,15 +544,19 @@ We implement an approximation of the analysis using three flags
 \item destructive
 \item non destructive
 \end{itemize}
-\item \bang flag:
+\item Main loop
 \begin{itemize}
 \itemsep0em
-\item 
+\item Flag variables \bang
+\item Flag occurrences \safe
+\item Add destructive update or function calls
 \end{itemize}
-\item \textbf{dupl} flag:
+\item Requirements
 \begin{itemize}
 \itemsep0em
-\item 
+\item Flag arguments \dupl
+\item Flag arguments \bang
+\item Flag return value \bang
 \end{itemize}
 \end{itemize}
 \end{frame}
@@ -589,18 +593,17 @@ $\Longleftarrow$ non destructive update\\
 \cl{X} \bang \\
 $\Longleftarrow$ non destructive update\\
 \pause
-\cl{F} \bang \\
+\cl{F} \bang and \safe \\
 $\Longleftarrow$ \cl{D} and \cl{X} \safe and \bang \\
 \pause
 \cl{G} \bang \\
 $\Longleftarrow$ \cl{F} \safe and \bang \\
 \pause
-\cl{H} \textbf{ mutable } \\
+\cl{H} \bang and \safe \\
 $\Longleftarrow$ \cl{G} and \cl{B} \safe and \bang \\
 \pause
 $\Longrightarrow$ Arguments \cl{B} gets \bang \\
-\pause
-\cl{H} \safe
+$\Longrightarrow$ Return value gets \bang \\
 \end{column}
 \end{columns}
 \end{frame}
