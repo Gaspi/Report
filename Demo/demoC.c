@@ -23,11 +23,16 @@ int main(void) {
   clock_t ticks1, ticks2;
   unsigned long int* TArray;
   unsigned long int* TArraySorted;
+
+  ticks1=clock();
+  TArray = T();
+  ticks2=clock();
+  printf("Took %f sec to compute T.\n", ( (double) (ticks2-ticks1) ) / CLOCKS_PER_SEC );
   
   ticks1=clock();
-  TArraySorted = insort( T() );
+  TArraySorted = insort( TArray );
   ticks2=clock();
-  printf("Took %f sec to compute and sort T.\n", ( (double) (ticks2-ticks1) ) / CLOCKS_PER_SEC );
+  printf("Took %f sec to sort T.\n", ( (double) (ticks2-ticks1) ) / CLOCKS_PER_SEC );
   
   printf("Mininimum of T = %lu\n", ((unsigned long int*) TArraySorted)[0] );
 
